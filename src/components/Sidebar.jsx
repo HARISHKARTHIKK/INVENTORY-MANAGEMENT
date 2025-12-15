@@ -1,4 +1,4 @@
-import { LayoutDashboard, Package, ClipboardList, FileText, Users, BarChart3, Settings, Truck } from 'lucide-react';
+import { LayoutDashboard, Package, ClipboardList, FileText, Users, BarChart3, Settings, Truck, LogOut } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { cn } from '../lib/utils';
 
@@ -17,7 +17,7 @@ import { useSettings } from '../context/SettingsContext';
 
 export default function Sidebar() {
     const { settings } = useSettings();
-    const { userRole } = useAuth();
+    const { userRole, logout } = useAuth();
 
     const filteredNav = navigation.filter(item => {
         if (item.name === 'Dispatch') {
@@ -54,15 +54,18 @@ export default function Sidebar() {
                 ))}
             </nav>
             <div className="border-t border-slate-800 p-4 bg-slate-900">
-                <div className="flex items-center gap-3 px-2">
-                    <div className="h-8 w-8 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-500 ring-1 ring-blue-500/50">
-                        <Settings className="h-4 w-4" />
+                <button
+                    onClick={() => logout()}
+                    className="flex items-center gap-3 px-2 w-full text-left hover:bg-slate-800 p-2 rounded-lg transition-colors group"
+                >
+                    <div className="h-8 w-8 rounded-full bg-red-500/10 flex items-center justify-center text-red-500 ring-1 ring-red-500/50 group-hover:bg-red-500 group-hover:text-white transition-all">
+                        <LogOut className="h-4 w-4" />
                     </div>
-                    <div className="text-xs text-slate-400">
-                        <p className="font-medium text-white">System Status</p>
-                        <p className="text-green-500">● Online</p>
+                    <div className="text-xs text-slate-400 group-hover:text-slate-200">
+                        <p className="font-medium text-white">Sign Out</p>
+                        <p className="">End Session</p>
                     </div>
-                </div>
+                </button>
             </div>
         </div>
     );

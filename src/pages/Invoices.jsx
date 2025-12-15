@@ -400,25 +400,27 @@ function CreateInvoice({ onCancel, onSuccess }) {
                                             })}
                                         </select>
                                     </div>
-                                    <div className="w-20">
+                                    <div className="w-24 relative">
                                         <input
                                             type="number"
                                             min="0.001"
                                             step="0.001"
-                                            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                                            placeholder="mts"
+                                            className="w-full pl-3 pr-8 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                                            placeholder="0.000"
                                             value={line.qty}
                                             onChange={(e) => updateLine(idx, 'qty', Number(e.target.value))}
                                         />
+                                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-500 font-bold pointer-events-none bg-slate-100 px-1 rounded border border-slate-200">MTS</span>
                                     </div>
-                                    <div className="w-28 relative">
+                                    <div className="w-32 relative">
                                         <input
                                             type="number"
-                                            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                                            className="w-full pl-6 pr-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500"
                                             placeholder="Price"
                                             value={line.price}
                                             onChange={(e) => updateLine(idx, 'price', Number(e.target.value))}
                                         />
+                                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-500 font-serif pointer-events-none">₹</span>
                                         <div className="absolute right-1 top-full text-[10px] text-slate-400">Rate/Unit</div>
                                     </div>
                                     <div className="w-24 text-right py-2 text-sm font-medium text-slate-700">
