@@ -1,0 +1,13 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand-blue: #0A2463; 
+  --color-brand-light: #3E92CC;
+  --font-sans: 'Inter', sans-serif;
+}
+
+body {
+  background-color: #f3f4f6;
+  color: #1f2937;
+  font-family: var(--font-sans);
+}
