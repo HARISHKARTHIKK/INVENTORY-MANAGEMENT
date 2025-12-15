@@ -2,12 +2,46 @@ import { useState, useEffect } from 'react';
 import { useSettings } from '../context/SettingsContext';
 import { Save, Building2, FileText, Package, Truck, Shield, Calendar, Wrench, Plus, Trash2, Loader2, AlertCircle } from 'lucide-react';
 import { backfillDispatches } from '../services/firestoreService';
+import { db } from '../lib/firebase';
+import { collection, getDocs, updateDoc, doc } from 'firebase/firestore';
+import { Users } from 'lucide-react';
 
 export default function Settings() {
     const { settings, updateSettings, loading } = useSettings();
     const [formData, setFormData] = useState(null);
     const [activeTab, setActiveTab] = useState('company');
     const [saving, setSaving] = useState(false);
+
+    // User Management State
+    const [users, setUsers] = useState([]);
+    const [loadingUsers, setLoadingUsers] = useState(false);
+
+    useEffect(() => {
+        if (activeTab === 'users') {
+            fetchUsers();
+        }
+    }, [activeTab]);
+
+    const fetchUsers = async () => {
+        setLoadingUsers(true);
+        try {
+            const snap = await getDocs(collection(db, 'users'));
+            setUsers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+        } catch (error) {
+            console.error("Error fetching users:", error);
+        } finally {
+            setLoadingUsers(false);
+        }
+    };
+
+    const handleUserUpdate = async (userId, field, value) => {
+        try {
+            await updateDoc(doc(db, 'users', userId), { [field]: value });
+            setUsers(prev => prev.map(u => u.id === userId ? { ...u, [field]: value } : u));
+        } catch (error) {
+            alert("Failed to update user: " + error.message);
+        }
+    };
 
     useEffect(() => {
         if (settings) {
@@ -78,6 +112,7 @@ export default function Settings() {
         { id: 'inventory', label: 'Inventory', icon: Package },
         { id: 'locations', label: 'Locations', icon: MapPinIcon },
         { id: 'transport', label: 'Transport', icon: Truck },
+        { id: 'users', label: 'Users', icon: Users },
         { id: 'system', label: 'System', icon: Wrench },
     ];
 
@@ -206,19 +241,37 @@ export default function Settings() {
                             </div>
                             <div className="space-y-3">
                                 {formData.locations.map((loc, idx) => (
-                                    <div key={idx} className={`flex items-center gap-3 p-3 rounded-lg border ${loc.active ? 'bg-white border-slate-200' : 'bg-slate-50 border-slate-100 opacity-60'}`}>
-                                        <div className="flex-1 grid grid-cols-2 gap-3">
-                                            <input type="text" placeholder="Location Name" className="p-1.5 border rounded text-sm font-medium" value={loc.name} onChange={e => handleLocationChange(idx, 'name', e.target.value)} />
-                                            <select className="p-1.5 border rounded text-sm" value={loc.type} onChange={e => handleLocationChange(idx, 'type', e.target.value)}>
-                                                <option value="Warehouse">Warehouse</option>
-                                                <option value="Plant">Plant</option>
-                                                <option value="Yard">Yard</option>
-                                                <option value="Store">Store</option>
-                                            </select>
+                                    <div key={idx} className={`flex flex-col gap-3 p-3 rounded-lg border ${loc.active ? 'bg-white border-slate-200' : 'bg-slate-50 border-slate-100 opacity-60'}`}>
+                                        <div className="flex items-center gap-3">
+                                            <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                                                <div className="space-y-1">
+                                                    <label className="text-[10px] text-slate-500 uppercase font-bold">Location Name</label>
+                                                    <input type="text" placeholder="Location Name" className="w-full p-2 border rounded text-sm font-medium" value={loc.name} onChange={e => handleLocationChange(idx, 'name', e.target.value)} />
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <label className="text-[10px] text-slate-500 uppercase font-bold">Type</label>
+                                                    <select className="w-full p-2 border rounded text-sm" value={loc.type} onChange={e => handleLocationChange(idx, 'type', e.target.value)}>
+                                                        <option value="Warehouse">Warehouse</option>
+                                                        <option value="Plant">Plant</option>
+                                                        <option value="Yard">Yard</option>
+                                                        <option value="Store">Store</option>
+                                                    </select>
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <label className="text-[10px] text-slate-500 uppercase font-bold">Invoice Prefix</label>
+                                                    <input type="text" placeholder="e.g. MUM" className="w-full p-2 border rounded text-sm font-mono uppercase" value={loc.prefix || ''} onChange={e => handleLocationChange(idx, 'prefix', e.target.value)} />
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <label className="text-[10px] text-slate-500 uppercase font-bold">Start Invoice #</label>
+                                                    <input type="number" placeholder="1001" className="w-full p-2 border rounded text-sm font-mono" value={loc.nextNumber || ''} onChange={e => handleLocationChange(idx, 'nextNumber', parseInt(e.target.value) || 0)} />
+                                                </div>
+                                            </div>
+                                            <div className="pt-5">
+                                                <button onClick={() => toggleLocation(idx)} className={`px-3 py-2 text-xs font-semibold rounded ${loc.active ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-slate-200 text-slate-600 hover:bg-slate-300'}`}>
+                                                    {loc.active ? 'Active' : 'Inactive'}
+                                                </button>
+                                            </div>
                                         </div>
-                                        <button onClick={() => toggleLocation(idx)} className={`px-2 py-1 text-xs font-semibold rounded ${loc.active ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-slate-200 text-slate-600 hover:bg-slate-300'}`}>
-                                            {loc.active ? 'Active' : 'Inactive'}
-                                        </button>
                                     </div>
                                 ))}
                             </div>
@@ -236,6 +289,62 @@ export default function Settings() {
                                 <span className="font-medium text-slate-700">Enable Dispatch Module</span>
                                 <input type="checkbox" checked={formData.transport.enable} onChange={e => handleChange('transport', 'enable', e.target.checked)} className="h-5 w-5 accent-blue-600" />
                             </div>
+                            <div className="pt-4 border-t">
+                                <label className="block text-sm font-medium text-slate-700 mb-2">Transport Modes (comma separated)</label>
+                                <input
+                                    type="text"
+                                    className="w-full p-2 border rounded bg-white text-sm"
+                                    placeholder="By Road, By Air, By Sea"
+                                    value={(formData.transport.modes || []).join(', ')}
+                                    onChange={e => handleChange('transport', 'modes', e.target.value.split(',').map(s => s.trim()).filter(Boolean))}
+                                />
+                            </div>
+                        </div>
+                    )}
+
+                    {activeTab === 'users' && (
+                        <div className="space-y-4">
+                            <h3 className="text-lg font-bold text-slate-800 mb-4 pb-2 border-b">User Management</h3>
+                            {loadingUsers ? <Loader2 className="animate-spin h-6 w-6 text-blue-600" /> : (
+                                <div className="space-y-3">
+                                    {users.map(user => (
+                                        <div key={user.id} className="flex items-center justify-between p-3 border rounded-lg bg-slate-50">
+                                            <div>
+                                                <p className="font-semibold text-slate-800">{user.email}</p>
+                                                <p className="text-xs text-slate-500 font-mono">{user.id}</p>
+                                            </div>
+                                            <div className="flex items-center gap-3">
+                                                <select
+                                                    className="p-1.5 border rounded text-sm bg-white"
+                                                    value={user.role || 'viewer'}
+                                                    onChange={(e) => handleUserUpdate(user.id, 'role', e.target.value)}
+                                                >
+                                                    <option value="viewer">Viewer</option>
+                                                    <option value="manager">Manager</option>
+                                                    <option value="admin">Admin</option>
+                                                </select>
+                                                <select
+                                                    className="p-1.5 border rounded text-sm bg-white w-32"
+                                                    value={user.location || ''}
+                                                    onChange={(e) => handleUserUpdate(user.id, 'location', e.target.value)}
+                                                >
+                                                    <option value="">All Locations</option>
+                                                    {(formData.locations || []).map(l => (
+                                                        <option key={l.name} value={l.name}>{l.name}</option>
+                                                    ))}
+                                                </select>
+                                                <button
+                                                    onClick={() => handleUserUpdate(user.id, 'active', !user.active)}
+                                                    className={`px-3 py-1.5 text-xs font-bold rounded ${user.active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}
+                                                >
+                                                    {user.active ? 'Active' : 'Inactive'}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                    {users.length === 0 && <p className="text-slate-500 italic">No users found.</p>}
+                                </div>
+                            )}
                         </div>
                     )}
 

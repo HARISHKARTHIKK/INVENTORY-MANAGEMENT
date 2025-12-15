@@ -14,7 +14,7 @@ export const SettingsProvider = ({ children }) => {
 
     const defaultSettings = {
         company: {
-            name: 'MAB CHEMICALS PVT. LTD.',
+            name: 'MAB CHEM. (P) LTD',
             address: '',
             gstin: '',
             pan: '',
@@ -44,8 +44,28 @@ export const SettingsProvider = ({ children }) => {
         transport: {
             enable: true,
             required: false,
-            modes: ['Truck', 'Lorry', 'Tempo']
+            modes: ['By Road', 'By Sea', 'By Air']
         }
+    };
+
+    // Ensure we have robust defaults for existing users
+    const ensureDefaults = (s) => {
+        const merged = { ...defaultSettings, ...s };
+        // Deep merge specific objects if needed
+        merged.company = { ...defaultSettings.company, ...s.company };
+        merged.invoice = { ...defaultSettings.invoice, ...s.invoice };
+        merged.inventory = { ...defaultSettings.inventory, ...s.inventory };
+        merged.transport = { ...defaultSettings.transport, ...s.transport };
+
+        // Ensure locations have prefix/nextNumber
+        if (Array.isArray(merged.locations)) {
+            merged.locations = merged.locations.map(loc => ({
+                prefix: 'INV',
+                nextNumber: 1,
+                ...loc
+            }));
+        }
+        return merged;
     };
 
     useEffect(() => {
@@ -58,7 +78,7 @@ export const SettingsProvider = ({ children }) => {
             unsubscribe = onSnapshot(ref, (snap) => {
                 if (snap.exists()) {
                     // Merge with defaults to ensure new fields exist
-                    setSettings({ ...defaultSettings, ...snap.data() });
+                    setSettings(ensureDefaults(snap.data()));
                 } else {
                     // Initialize if missing
                     setDoc(ref, defaultSettings);

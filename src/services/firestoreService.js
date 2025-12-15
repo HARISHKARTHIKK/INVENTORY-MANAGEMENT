@@ -112,14 +112,18 @@ export const createInvoice = async (invoice, items, fromLocation) => {
             if (!snap.exists()) throw new Error(`Product not found: ${item.name}`);
 
             const quantity = Number(item.quantity);
-            if (isNaN(quantity) || quantity <= 0) throw new Error(`Invalid numeric quantity for product: ${item.name || 'Unknown'}`);
+            if (isNaN(quantity)) throw new Error(`Invalid numeric quantity for product: ${item.name || 'Unknown'}`);
+            if (quantity < 0) throw new Error(`Quantity cannot be negative for product: ${item.name}`);
 
             const data = snap.data();
             const locations = data.locations || {};
             const currentLocStock = Number(locations[fromLocation]) || 0;
 
             if (currentLocStock < quantity) {
-                throw new Error(`Insufficient stock for ${item.name} at ${fromLocation}. Available: ${currentLocStock}, Requested: ${quantity}`);
+                // Allow if quantity is 0, otherwise block
+                if (quantity > 0) {
+                    throw new Error(`Insufficient stock for ${item.name} at ${fromLocation}. Available: ${currentLocStock}, Requested: ${quantity}`);
+                }
             }
 
             const newLocStock = Number((currentLocStock - quantity).toFixed(4));
@@ -280,7 +284,8 @@ export const addStock = async ({ productId, location, quantity, reason }) => {
     if (!auth.currentUser) throw new Error("User not authenticated");
     const uid = auth.currentUser.uid;
 
-    if (quantity <= 0) throw new Error("Quantity must be greater than zero.");
+    const qty = Number(quantity);
+    if (isNaN(qty)) throw new Error("Invalid numeric quantity.");
     if (!location) throw new Error("Location is required.");
 
     await runTransaction(db, async (transaction) => {
@@ -291,17 +296,21 @@ export const addStock = async ({ productId, location, quantity, reason }) => {
 
         const data = productSnap.data();
         const locations = data.locations || {};
-        const currentLocStock = locations[location] || 0;
-        const currentTotalStock = data.stockQty || 0;
+        const currentLocStock = Number(locations[location]) || 0;
 
-        const newLocStock = currentLocStock + Number(quantity);
-        const newTotalStock = currentTotalStock + Number(quantity);
+        // No checks on negative result, assume allowed or managed by UI warning? 
+        // "Stock quantity is allowed to be ZERO".
+        // addStock adds to current.
+
+        const newLocStock = Number((currentLocStock + qty).toFixed(4));
 
         const newLocations = { ...locations, [location]: newLocStock };
+        // Recalc total from locations to be safe
+        const newTotalStock = Object.values(newLocations).reduce((a, b) => a + (Number(b) || 0), 0);
 
         transaction.update(productRef, {
             locations: newLocations,
-            stockQty: newTotalStock,
+            stockQty: Number(newTotalStock.toFixed(4)),
             updatedAt: serverTimestamp()
         });
 
@@ -310,8 +319,56 @@ export const addStock = async ({ productId, location, quantity, reason }) => {
         transaction.set(moveRef, {
             productId,
             location,
-            changeQty: Number(quantity),
+            changeQty: qty,
             reason: reason || "Stock Entry",
+            userId: uid,
+            createdAt: serverTimestamp()
+        });
+    });
+};
+
+export const updateStockLevel = async ({ productId, location, newQuantity, reason }) => {
+    const auth = getAuth();
+    if (!auth.currentUser) throw new Error("User not authenticated");
+    const uid = auth.currentUser.uid;
+
+    const newQty = Number(newQuantity);
+    if (isNaN(newQty)) throw new Error("Invalid numeric quantity.");
+    if (newQty < 0) throw new Error("Stock cannot be negative."); // Basic sanity, though "Allow 0" implies not negative? 
+    // Requirement "Stock quantity allowed to be ZERO". Usually inventory constraint is >= 0.
+
+    if (!location) throw new Error("Location is required.");
+
+    await runTransaction(db, async (transaction) => {
+        const productRef = doc(db, "products", productId);
+        const productSnap = await transaction.get(productRef);
+
+        if (!productSnap.exists()) throw new Error("Product not found.");
+
+        const data = productSnap.data();
+        const locations = data.locations || {};
+        const currentLocStock = Number(locations[location]) || 0;
+
+        const diff = newQty - currentLocStock;
+
+        if (diff === 0) return; // No change
+
+        const newLocations = { ...locations, [location]: Number(newQty.toFixed(4)) };
+        const newTotalStock = Object.values(newLocations).reduce((a, b) => a + (Number(b) || 0), 0);
+
+        transaction.update(productRef, {
+            locations: newLocations,
+            stockQty: Number(newTotalStock.toFixed(4)),
+            updatedAt: serverTimestamp()
+        });
+
+        // Log Movement
+        const moveRef = doc(collection(db, "stockMovements"));
+        transaction.set(moveRef, {
+            productId,
+            location,
+            changeQty: Number(diff.toFixed(4)),
+            reason: reason || "Stock Correction",
             userId: uid,
             createdAt: serverTimestamp()
         });

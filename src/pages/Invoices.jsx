@@ -7,8 +7,10 @@ import { collection, onSnapshot, query, orderBy, getDocs, limit, where } from 'f
 import { createInvoice } from '../services/firestoreService';
 import { format } from 'date-fns';
 import { useSettings } from '../context/SettingsContext';
+import { useAuth } from '../context/AuthContext';
 
 export default function Invoices() {
+    const { userRole } = useAuth();
     const [view, setView] = useState('list'); // 'list' or 'create'
     const [invoices, setInvoices] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -18,10 +20,10 @@ export default function Invoices() {
 
     // Check for navigation state to open Create Invoice automatically
     useEffect(() => {
-        if (location.state?.create) {
+        if (location.state?.create && userRole !== 'viewer') {
             setView('create');
         }
-    }, [location.state]);
+    }, [location.state, userRole]);
 
     // Real-time invoices fetch
     useEffect(() => {
@@ -87,13 +89,15 @@ export default function Invoices() {
                     >
                         Export CSV
                     </button>
-                    <button
-                        onClick={() => setView('create')}
-                        className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-lg font-medium transition-all shadow-md shadow-blue-500/20 active:scale-95"
-                    >
-                        <Plus className="h-4 w-4" />
-                        New Invoice
-                    </button>
+                    {userRole !== 'viewer' && (
+                        <button
+                            onClick={() => setView('create')}
+                            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-lg font-medium transition-all shadow-md shadow-blue-500/20 active:scale-95"
+                        >
+                            <Plus className="h-4 w-4" />
+                            New Invoice
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -176,7 +180,7 @@ export default function Invoices() {
 }
 
 function CreateInvoice({ onCancel, onSuccess }) {
-    const { settings } = useSettings();
+    const { settings, updateSettings } = useSettings();
     const [customers, setCustomers] = useState([]);
     const [products, setProducts] = useState([]);
     const [selectedCustomer, setSelectedCustomer] = useState('');
@@ -188,13 +192,37 @@ function CreateInvoice({ onCancel, onSuccess }) {
     // Dynamic Locations from Settings (or fallback)
     const LOCATIONS = settings?.locations?.filter(l => l.active).map(l => l.name) || ['Warehouse A', 'Warehouse B', 'Store Front', 'Factory'];
 
+    // Auto-generate Invoice Number when Location Changes
+    useEffect(() => {
+        if (fromLocation && settings?.locations) {
+            const loc = settings.locations.find(l => l.name === fromLocation);
+            if (loc) {
+                // If manual mode is disabled (Auto mode), set the number.
+                // Or if current invoiceNo is empty.
+                if (!settings.invoice?.manualNo || !invoiceNo) {
+                    const prefix = loc.prefix || 'INV';
+                    const num = loc.nextNumber || 1;
+                    setInvoiceNo(`${prefix}-${num}`);
+                }
+            }
+        }
+    }, [fromLocation, settings]);
+
     // Transport Data
     const [transport, setTransport] = useState({
         vehicleNumber: '',
         amount: 0,
         mode: '',
-        isExtra: false // true = Extra (add to total), false = Included
+        isExtra: false
     });
+
+    // ... (rest of code)
+
+
+
+    // ... (rest)
+    // Needs to splice this into correct place.
+    // I will use replace_file_content on specific blocks.
 
     // Fetch data for dropdowns
     useEffect(() => {
@@ -311,6 +339,17 @@ function CreateInvoice({ onCancel, onSuccess }) {
                 },
                 status: 'paid'
             }, lines, fromLocation);
+
+            // Increment Invoice Counter
+            if (settings?.locations) {
+                const locIndex = settings.locations.findIndex(l => l.name === fromLocation);
+                if (locIndex >= 0) {
+                    const newSettings = JSON.parse(JSON.stringify(settings));
+                    const currentNext = newSettings.locations[locIndex].nextNumber || 1;
+                    newSettings.locations[locIndex].nextNumber = currentNext + 1;
+                    await updateSettings(newSettings);
+                }
+            }
 
             onSuccess();
         } catch (error) {
@@ -472,13 +511,17 @@ function CreateInvoice({ onCancel, onSuccess }) {
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-medium text-slate-500 mb-1">Mode (Optional)</label>
-                                    <input
-                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
-                                        placeholder="Truck, Van..."
+                                    <label className="block text-xs font-medium text-slate-500 mb-1">Mode</label>
+                                    <select
+                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white"
                                         value={transport.mode}
                                         onChange={e => setTransport({ ...transport, mode: e.target.value })}
-                                    />
+                                    >
+                                        <option value="">Select Mode</option>
+                                        {(settings?.transport?.modes || ['By Road', 'By Sea', 'By Air']).map(m => (
+                                            <option key={m} value={m}>{m}</option>
+                                        ))}
+                                    </select>
                                 </div>
                             </div>
                             <div className="pt-2">
@@ -740,8 +783,14 @@ function InvoiceItemsLoader({ invoiceId }) {
                         */}
                         {item.productName || item.name || <span>Product {item.productId?.slice(0, 5)}...</span>}
                     </td>
-                    <td className="py-3 text-right font-mono">{Number(item.quantity).toFixed(3)}</td>
-                    <td className="py-3 text-right">₹ {Number(item.price).toLocaleString()}</td>
+                    <td className="py-3 text-right font-mono">
+                        <span className="text-[10px] text-slate-400 mr-1 uppercase">Qty</span>
+                        {Number(item.quantity).toFixed(3)}
+                    </td>
+                    <td className="py-3 text-right">
+                        <span className="text-[10px] text-slate-400 mr-1 uppercase">Rate</span>
+                        ₹ {Number(item.price).toLocaleString()}
+                    </td>
                     <td className="py-3 text-right font-bold text-slate-700">₹ {(Number(item.quantity) * Number(item.price)).toLocaleString()}</td>
                 </tr>
             ))}

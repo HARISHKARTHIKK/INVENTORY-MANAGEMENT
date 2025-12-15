@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { auth, db } from '../lib/firebase';
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 
 const AuthContext = createContext();
 
@@ -32,7 +32,22 @@ export function AuthProvider({ children }) {
                     const fetchRole = async () => {
                         const docRef = doc(db, "users", user.uid);
                         const docSnap = await getDoc(docRef);
-                        return docSnap.exists() ? docSnap.data().role : 'staff';
+
+                        if (docSnap.exists()) {
+                            const data = docSnap.data();
+                            if (data.active === false) return 'suspended';
+                            return data.role;
+                        } else {
+                            // Create default user doc
+                            await setDoc(docRef, {
+                                email: user.email,
+                                role: 'viewer',
+                                active: true,
+                                createdAt: serverTimestamp(),
+                                locations: [] // Optional
+                            });
+                            return 'viewer';
+                        }
                     };
 
                     const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve('timeout'), 4000));
@@ -41,14 +56,14 @@ export function AuthProvider({ children }) {
                     const role = await Promise.race([fetchRole(), timeoutPromise]);
 
                     if (role === 'timeout') {
-                        console.warn("User role fetch timed out, defaulting to 'staff'");
-                        setUserRole('staff');
+                        console.warn("User role fetch timed out, defaulting to 'viewer'");
+                        setUserRole('viewer');
                     } else {
                         setUserRole(role);
                     }
                 } catch (error) {
                     console.error("Error fetching user role:", error);
-                    setUserRole('staff');
+                    setUserRole('viewer');
                 }
             } else {
                 setCurrentUser(null);

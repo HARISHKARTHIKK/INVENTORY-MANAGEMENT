@@ -12,14 +12,19 @@ const navigation = [
     { name: 'Settings', href: '/settings', icon: Settings },
 ];
 
+import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
 
 export default function Sidebar() {
     const { settings } = useSettings();
+    const { userRole } = useAuth();
 
     const filteredNav = navigation.filter(item => {
         if (item.name === 'Dispatch') {
-            return settings?.transport?.enable !== false; // Default to true if loading
+            return settings?.transport?.enable !== false;
+        }
+        if (item.name === 'Settings' || item.name === 'Users') {
+            return userRole === 'admin';
         }
         return true;
     });

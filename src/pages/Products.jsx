@@ -19,7 +19,7 @@ export default function Products() {
     });
 
     // 🔹 FETCH PRODUCTS
-    const { currentUser } = useAuth(); // Use context instead of getAuth directly
+    const { currentUser, userRole } = useAuth(); // Use context instead of getAuth directly
 
     // 🔹 FETCH PRODUCTS
     useEffect(() => {
@@ -154,13 +154,15 @@ export default function Products() {
                     >
                         Export CSV
                     </button>
-                    <button
-                        onClick={() => handleOpenModal()}
-                        className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-lg font-medium transition-all shadow-md shadow-blue-500/20 active:scale-95"
-                    >
-                        <Plus className="h-4 w-4" />
-                        Add Product
-                    </button>
+                    {userRole !== 'viewer' && (
+                        <button
+                            onClick={() => handleOpenModal()}
+                            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-lg font-medium transition-all shadow-md shadow-blue-500/20 active:scale-95"
+                        >
+                            <Plus className="h-4 w-4" />
+                            Add Product
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -190,7 +192,7 @@ export default function Products() {
                                 <th className="px-6 py-4">SKU / HSN</th>
                                 <th className="px-6 py-4">Price</th>
                                 <th className="px-6 py-4">Stock Status</th>
-                                <th className="px-6 py-4 text-right">Actions</th>
+                                {userRole !== 'viewer' && <th className="px-6 py-4 text-right">Actions</th>}
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
@@ -216,16 +218,18 @@ export default function Products() {
                                             {product.stockQty === 0 ? 'Out of Stock' : `${product.stockQty} Units`}
                                         </span>
                                     </td>
-                                    <td className="px-6 py-4 text-right">
-                                        <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <button onClick={() => handleOpenModal(product)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Edit">
-                                                <Edit className="h-4 w-4" />
-                                            </button>
-                                            <button onClick={() => handleDelete(product.id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
-                                                <Trash2 className="h-4 w-4" />
-                                            </button>
-                                        </div>
-                                    </td>
+                                    {userRole !== 'viewer' && (
+                                        <td className="px-6 py-4 text-right">
+                                            <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <button onClick={() => handleOpenModal(product)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Edit">
+                                                    <Edit className="h-4 w-4" />
+                                                </button>
+                                                <button onClick={() => handleDelete(product.id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
+                                                    <Trash2 className="h-4 w-4" />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    )}
                                 </tr>
                             ))}
                         </tbody>

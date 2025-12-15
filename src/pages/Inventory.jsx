@@ -10,9 +10,11 @@ import {
 import StockTransferModal from '../components/StockTransferModal';
 import { addStock } from '../services/firestoreService';
 import { useSettings } from '../context/SettingsContext';
+import { useAuth } from '../context/AuthContext';
 
 export default function Inventory() {
     const { settings } = useSettings();
+    const { userRole } = useAuth();
     const [view, setView] = useState('inventory'); // 'inventory', 'logs', 'summary'
     const [products, setProducts] = useState([]);
     const [logs, setLogs] = useState([]);
@@ -256,10 +258,12 @@ export default function Inventory() {
                     <p className="text-sm text-slate-500 mt-1">Manage products, stock, and locations</p>
                 </div>
                 <div className="flex gap-2 p-1 rounded-lg">
-                    <button onClick={() => handleOpenProductModal()} className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 shadow font-medium">
-                        <Plus className="h-4 w-4" /> Product
-                    </button>
-                    {settings?.inventory?.allowStockTransfer !== false && (
+                    {userRole !== 'viewer' && (
+                        <button onClick={() => handleOpenProductModal()} className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 shadow font-medium">
+                            <Plus className="h-4 w-4" /> Product
+                        </button>
+                    )}
+                    {settings?.inventory?.allowStockTransfer !== false && userRole !== 'viewer' && (
                         <button onClick={() => setIsTransferModalOpen(true)} className="flex items-center gap-2 bg-white text-slate-700 border border-slate-300 px-4 py-2 rounded-lg hover:bg-slate-50 font-medium">
                             <ArrowRightLeft className="h-4 w-4" /> Transfer
                         </button>
@@ -291,7 +295,7 @@ export default function Inventory() {
                                     <th className="px-6 py-4">SKU / HSN</th>
                                     <th className="px-6 py-4">Total Stock</th>
                                     <th className="px-6 py-4">Location Breakdown</th>
-                                    <th className="px-6 py-4 text-right">Actions</th>
+                                    {userRole !== 'viewer' && <th className="px-6 py-4 text-right">Actions</th>}
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
@@ -326,11 +330,13 @@ export default function Inventory() {
                                                     )}
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-4 text-right flex justify-end gap-2 align-top">
-                                                <button onClick={() => handleOpenStockModal(p)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded" title="Add Stock"><Box className="h-4 w-4" /></button>
-                                                <button onClick={() => handleOpenProductModal(p)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-slate-100 rounded" title="Edit"><Edit className="h-4 w-4" /></button>
-                                                <button onClick={() => handleDeleteProduct(p.id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-slate-100 rounded" title="Delete"><Trash2 className="h-4 w-4" /></button>
-                                            </td>
+                                            {userRole !== 'viewer' && (
+                                                <td className="px-6 py-4 text-right flex justify-end gap-2 align-top">
+                                                    <button onClick={() => handleOpenStockModal(p)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded" title="Add Stock"><Box className="h-4 w-4" /></button>
+                                                    <button onClick={() => handleOpenProductModal(p)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-slate-100 rounded" title="Edit"><Edit className="h-4 w-4" /></button>
+                                                    <button onClick={() => handleDeleteProduct(p.id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-slate-100 rounded" title="Delete"><Trash2 className="h-4 w-4" /></button>
+                                                </td>
+                                            )}
                                         </tr>
                                     );
                                 })}
