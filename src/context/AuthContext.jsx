@@ -12,6 +12,7 @@ export function useAuth() {
 export function AuthProvider({ children }) {
     const [currentUser, setCurrentUser] = useState(null);
     const [userRole, setUserRole] = useState(null);
+    const [userData, setUserData] = useState(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -36,7 +37,7 @@ export function AuthProvider({ children }) {
                         if (docSnap.exists()) {
                             const data = docSnap.data();
                             if (data.active === false) return 'suspended';
-                            return data.role;
+                            return data;
                         } else {
                             // Create default user doc
                             await setDoc(docRef, {
@@ -53,17 +54,22 @@ export function AuthProvider({ children }) {
                     const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve('timeout'), 4000));
 
                     // We still use the race for the ROLE, but we don't block the USER login
-                    const role = await Promise.race([fetchRole(), timeoutPromise]);
-
-                    if (role === 'timeout') {
-                        console.warn("User role fetch timed out, defaulting to 'viewer'");
+                    const data = await fetchRole();
+                    if (data === 'timeout') {
+                        console.warn("User data fetch timed out, defaulting to 'viewer'");
                         setUserRole('viewer');
+                        setUserData({ role: 'viewer' });
+                    } else if (data === 'suspended') {
+                        setUserRole('suspended');
+                        setUserData({ role: 'suspended', active: false });
                     } else {
-                        setUserRole(role);
+                        setUserRole(data.role || 'viewer');
+                        setUserData(data);
                     }
                 } catch (error) {
-                    console.error("Error fetching user role:", error);
+                    console.error("Error fetching user data:", error);
                     setUserRole('viewer');
+                    setUserData({ role: 'viewer' });
                 }
             } else {
                 setCurrentUser(null);
@@ -86,6 +92,7 @@ export function AuthProvider({ children }) {
     const value = {
         currentUser,
         userRole,
+        userData,
         login,
         logout,
         loading

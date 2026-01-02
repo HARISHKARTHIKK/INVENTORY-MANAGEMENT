@@ -15,6 +15,8 @@ export default function Invoices() {
     const [invoices, setInvoices] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const [startDate, setStartDate] = useState('');
+    const [endDate, setEndDate] = useState('');
     const [selectedInvoice, setSelectedInvoice] = useState(null);
     const location = useLocation();
 
@@ -27,8 +29,8 @@ export default function Invoices() {
 
     // Real-time invoices fetch
     useEffect(() => {
-        // Query limited to 50 recent items for performance
-        const q = query(collection(db, 'invoices'), orderBy('createdAt', 'desc'), limit(50));
+        // Query limited to 100 recent items for performance
+        const q = query(collection(db, 'invoices'), orderBy('createdAt', 'desc'), limit(100));
 
         try {
             const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -46,10 +48,34 @@ export default function Invoices() {
         }
     }, []);
 
-    const filteredInvoices = invoices.filter(inv =>
-        inv.invoiceNo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        inv.customerName?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const filteredInvoices = invoices
+        .filter(inv => {
+            const matchesSearch = inv.invoiceNo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                inv.customerName?.toLowerCase().includes(searchTerm.toLowerCase());
+
+            const invDate = inv.createdAt?.seconds ? new Date(inv.createdAt.seconds * 1000) : null;
+            let matchesDate = true;
+
+            if (invDate) {
+                if (startDate) {
+                    const s = new Date(startDate);
+                    s.setHours(0, 0, 0, 0);
+                    if (invDate < s) matchesDate = false;
+                }
+                if (endDate) {
+                    const e = new Date(endDate);
+                    e.setHours(23, 59, 59, 999);
+                    if (invDate > e) matchesDate = false;
+                }
+            }
+
+            return matchesSearch && matchesDate;
+        })
+        .sort((a, b) => {
+            const timeA = a.createdAt?.seconds || 0;
+            const timeB = b.createdAt?.seconds || 0;
+            return timeB - timeA;
+        });
 
     const handleExport = () => {
         const dataToExport = invoices.map(inv => ({
@@ -103,7 +129,7 @@ export default function Invoices() {
 
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                 <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row gap-4 items-center justify-between bg-slate-50/50">
-                    <div className="relative w-full sm:w-96">
+                    <div className="relative w-full sm:w-80">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                         <input
                             type="text"
@@ -112,6 +138,32 @@ export default function Invoices() {
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                        <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-lg px-3 py-1.5 shadow-sm">
+                            <Calendar className="h-4 w-4 text-slate-400" />
+                            <input
+                                type="date"
+                                className="outline-none text-sm text-slate-600 bg-transparent"
+                                value={startDate}
+                                onChange={(e) => setStartDate(e.target.value)}
+                            />
+                            <span className="text-slate-300 text-xs text-center px-1">to</span>
+                            <input
+                                type="date"
+                                className="outline-none text-sm text-slate-600 bg-transparent"
+                                value={endDate}
+                                onChange={(e) => setEndDate(e.target.value)}
+                            />
+                        </div>
+                        {(startDate || endDate) && (
+                            <button
+                                onClick={() => { setStartDate(''); setEndDate(''); }}
+                                className="text-xs text-red-500 hover:text-red-700 font-medium px-2 py-1 rounded hover:bg-red-50"
+                            >
+                                Clear
+                            </button>
+                        )}
                     </div>
                 </div>
 
@@ -144,7 +196,7 @@ export default function Invoices() {
                                         </span>
                                     </td>
                                     <td className="px-6 py-4 text-right font-bold text-slate-800">
-                                        ₹ {inv.totalAmount?.toLocaleString()}
+                                        ₹ {(Number(inv.totalAmount) || 0).toFixed(1)}
                                     </td>
                                     <td className="px-6 py-4 text-center">
                                         <span className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-semibold">Paid</span>
@@ -181,28 +233,41 @@ export default function Invoices() {
 
 function CreateInvoice({ onCancel, onSuccess }) {
     const { settings, updateSettings } = useSettings();
+    const { userData } = useAuth();
     const [customers, setCustomers] = useState([]);
     const [products, setProducts] = useState([]);
     const [selectedCustomer, setSelectedCustomer] = useState('');
-    const [fromLocation, setFromLocation] = useState('');
+    const [fromLocation, setFromLocation] = useState(userData?.location || '');
     const [invoiceNo, setInvoiceNo] = useState('');
     const [lines, setLines] = useState([]);
     const [submitting, setSubmitting] = useState(false);
 
     // Dynamic Locations from Settings (or fallback)
-    const LOCATIONS = settings?.locations?.filter(l => l.active).map(l => l.name) || ['Warehouse A', 'Warehouse B', 'Store Front', 'Factory'];
+    // We also explicitly include the user's assigned location in case settings are loading or it's missing from the active list
+    const baseLocations = settings?.locations?.filter(l => l.active).map(l => l.name) || ['Warehouse A', 'Warehouse B', 'Store Front', 'Factory'];
+    const LOCATIONS = [...new Set([...baseLocations, userData?.location].filter(Boolean))];
+
+    // Set default location from user profile if available
+    useEffect(() => {
+        if (!fromLocation && userData?.location) {
+            setFromLocation(userData.location);
+        }
+    }, [userData]);
 
     // Auto-generate Invoice Number when Location Changes
     useEffect(() => {
         if (fromLocation && settings?.locations) {
             const loc = settings.locations.find(l => l.name === fromLocation);
             if (loc) {
-                // If manual mode is disabled (Auto mode), set the number.
-                // Or if current invoiceNo is empty.
-                if (!settings.invoice?.manualNo || !invoiceNo) {
-                    const prefix = loc.prefix || 'INV';
-                    const num = loc.nextNumber || 1;
-                    setInvoiceNo(`${prefix}-${num}`);
+                const prefix = loc.prefix || 'INV';
+                const num = loc.nextNumber || 1;
+                const newNo = `${prefix}-${num}`;
+
+                // Force update if in auto mode OR if current invoiceNo is empty 
+                // OR if it currently looks like an auto-generated number (ends with its sequence)
+                // This allows the prefix to change when the user switches locations.
+                if (!settings.invoice?.manualNo || !invoiceNo || invoiceNo.includes('-')) {
+                    setInvoiceNo(newNo);
                 }
             }
         }
@@ -216,48 +281,64 @@ function CreateInvoice({ onCancel, onSuccess }) {
         isExtra: false
     });
 
-    // ... (rest of code)
-
-
-
-    // ... (rest)
-    // Needs to splice this into correct place.
-    // I will use replace_file_content on specific blocks.
-
-    // Fetch data for dropdowns
+    // Real-time data for dropdowns (ensures stock is always up-to-date)
     useEffect(() => {
-        const fetchData = async () => {
-            // ... existing fetch logic
-            const custSnap = await getDocs(query(collection(db, 'customers'), orderBy('name')));
-            const prodSnap = await getDocs(query(collection(db, 'products'), orderBy('name')));
-            setCustomers(custSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-            setProducts(prodSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+        const qCustomers = query(collection(db, 'customers'), orderBy('name'));
+        const qProducts = query(collection(db, 'products'), orderBy('name'));
+
+        const unsubCustomers = onSnapshot(qCustomers, (snapshot) => {
+            setCustomers(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+        });
+
+        const unsubProducts = onSnapshot(qProducts, (snapshot) => {
+            setProducts(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+        });
+
+        return () => {
+            unsubCustomers();
+            unsubProducts();
         };
-        fetchData();
     }, []);
 
-    // Helper to get stock at location
-    const getStockAtLocation = (product, loc) => {
-        if (!product || !loc) return 0;
-        return product.locations?.[loc] || 0;
+    // Helper to get total stock across all locations (as per user requirement to take from total)
+    const getStockAtLocation = (product) => {
+        if (!product) return 0;
+        return Object.values(product.locations || {}).reduce((a, b) => a + (Number(b) || 0), 0);
     };
 
     const addLine = () => {
-        setLines([...lines, { productId: '', qty: 1, price: 0, stock: 0 }]);
+        setLines([...lines, { productId: '', qty: '1', price: '0', stock: 0 }]);
     };
 
     const updateLine = (index, field, value) => {
         const newLines = [...lines];
-        if (field === 'productId') {
-            const prod = products.find(p => p.id === value);
-            newLines[index].productId = value;
-            newLines[index].name = prod?.name || '';
-            newLines[index].price = prod?.price || 0;
-            // Update stock based on currently selected location
-            newLines[index].stock = getStockAtLocation(prod, fromLocation);
-        } else {
-            newLines[index][field] = value;
+        const updatedLine = { ...newLines[index] };
+
+        let processedValue = value;
+        if (field === 'qty' || field === 'price') {
+            // Replace commas with dots
+            processedValue = String(value).replace(/,/g, '.');
+            // Allow only numbers and a single decimal point
+            processedValue = processedValue.replace(/[^0-9.]/g, '');
+            const dots = (processedValue.match(/\./g) || []).length;
+            if (dots > 1) {
+                const parts = processedValue.split('.');
+                processedValue = parts[0] + '.' + parts.slice(1).join('');
+            }
         }
+
+        if (field === 'productId') {
+            const prod = products.find(p => p.id === String(value));
+            updatedLine.productId = String(value);
+            updatedLine.name = prod?.name || '';
+            updatedLine.price = String(prod?.price || '0');
+            updatedLine.qty = String(updatedLine.qty || '1');
+            updatedLine.stock = Number(getStockAtLocation(prod, fromLocation));
+        } else {
+            updatedLine[field] = processedValue;
+        }
+
+        newLines[index] = updatedLine;
         setLines(newLines);
     };
 
@@ -279,7 +360,11 @@ function CreateInvoice({ onCancel, onSuccess }) {
     };
 
     const calculateTotals = () => {
-        const linesTotal = lines.reduce((acc, line) => acc + (Number(line.qty) * Number(line.price)), 0);
+        const linesTotal = lines.reduce((acc, line) => {
+            const qty = Number(String(line.qty || 0).replace(/,/g, '.'));
+            const price = Number(String(line.price || 0).replace(/,/g, '.'));
+            return acc + (qty * price);
+        }, 0);
 
         // Tax Calculation based on Settings
         // Rule: Transport is NEVER taxed.
@@ -305,15 +390,49 @@ function CreateInvoice({ onCancel, onSuccess }) {
     };
 
     const handleSubmit = async () => {
-        if (!invoiceNo || !selectedCustomer || !fromLocation || lines.length === 0) {
-            alert("Please provide Invoice Number, Customer, Dispatch Location, and Items.");
+        // 0. Filter out empty items
+        const validLines = lines.filter(l => l.productId && l.qty && parseFloat(String(l.qty).replace(/,/g, '.')) > 0);
+
+        // 1. Basic Required Field Check
+        if (!invoiceNo || !selectedCustomer || !fromLocation || validLines.length === 0) {
+            alert("Please provide Invoice Number, Customer, Dispatch Location, and at least one valid Item.");
             return;
         }
 
-        // Validate stock
-        for (const line of lines) {
-            if (line.qty > line.stock) {
-                alert(`Insufficient stock for ${line.name} at ${fromLocation}. Available: ${line.stock}`);
+        // 2. Empty Check & Numeric Validation at point of submission
+        for (const line of validLines) {
+            if (!line.productId) {
+                alert("Please select a product for all items.");
+                return;
+            }
+
+            // Requirement 2: Empty Value Handling
+            if (line.qty === '' || line.qty === null || line.qty === undefined) {
+                alert(`Quantity is required for product: ${line.name || 'Selected Item'}`);
+                return;
+            }
+
+            // Format check & explicit casting for validation
+            const qtyVal = Number(String(line.qty).replace(/,/g, '.'));
+            if (isNaN(qtyVal) || qtyVal <= 0) {
+                alert(`Please enter a valid quantity greater than 0 for ${line.name || 'Selected Item'}`);
+                return;
+            }
+        }
+
+        // Validate stock against global stockQty
+        for (const line of validLines) {
+            const prod = products.find(p => p.id === line.productId);
+            if (!prod) {
+                alert(`Product not found for item: ${line.name}`);
+                return;
+            }
+            const globalStock = getStockAtLocation(prod);
+            // Requirement 1: Explicit cast using parseFloat
+            const requestedQuantity = parseFloat(String(line.qty).replace(/,/g, '.')) || 0;
+
+            if (globalStock < requestedQuantity) {
+                alert(`Insufficient global stock for ${line.name}. Available: ${globalStock.toFixed(1)}, Requested: ${requestedQuantity.toFixed(1)}`);
                 return;
             }
         }
@@ -323,14 +442,21 @@ function CreateInvoice({ onCancel, onSuccess }) {
             const { linesTotal, tax, total, taxableValue } = calculateTotals();
             const customerObj = customers.find(c => c.id === selectedCustomer);
 
+            // Requirement 1 & 2: Explicitly cast using parseFloat and handle empty items
+            const preparedItems = validLines.map(l => ({
+                ...l,
+                quantity: parseFloat(String(l.qty).replace(/,/g, '.')) || 0,
+                price: parseFloat(String(l.price).replace(/,/g, '.')) || 0
+            }));
+
             await createInvoice({
                 invoiceNo: invoiceNo,
                 customerId: selectedCustomer,
                 customerName: customerObj?.name || 'Unknown',
-                subtotal: linesTotal, // Product total only
-                taxAmount: tax,
-                totalAmount: total,
-                taxableValue: taxableValue, // Includes transport if extra
+                subtotal: Number(linesTotal) || 0,
+                taxAmount: Number(tax) || 0,
+                totalAmount: Number(total) || 0,
+                taxableValue: Number(taxableValue) || 0,
                 transport: {
                     vehicleNumber: transport.vehicleNumber,
                     amount: Number(transport.amount) || 0,
@@ -338,7 +464,7 @@ function CreateInvoice({ onCancel, onSuccess }) {
                     isExtra: transport.isExtra
                 },
                 status: 'paid'
-            }, lines, fromLocation);
+            }, preparedItems, fromLocation);
 
             // Increment Invoice Counter
             if (settings?.locations) {
@@ -391,10 +517,10 @@ function CreateInvoice({ onCancel, onSuccess }) {
                                         >
                                             <option value="">{fromLocation ? 'Select Product' : 'Select Location First'}</option>
                                             {products.map(p => {
-                                                const locStock = p.locations?.[fromLocation] || 0;
+                                                const totalStock = Object.values(p.locations || {}).reduce((a, b) => a + (Number(b) || 0), 0);
                                                 return (
-                                                    <option key={p.id} value={p.id} disabled={locStock <= 0}>
-                                                        {p.name} (Stock: {locStock})
+                                                    <option key={p.id} value={String(p.id)}>
+                                                        {p.name} (Total Stock: {totalStock.toFixed(1)})
                                                     </option>
                                                 );
                                             })}
@@ -408,7 +534,7 @@ function CreateInvoice({ onCancel, onSuccess }) {
                                             className="w-full pl-3 pr-8 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500"
                                             placeholder="0.000"
                                             value={line.qty}
-                                            onChange={(e) => updateLine(idx, 'qty', Number(e.target.value))}
+                                            onChange={(e) => updateLine(idx, 'qty', e.target.value)}
                                         />
                                         <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-500 font-bold pointer-events-none bg-slate-100 px-1 rounded border border-slate-200">MTS</span>
                                     </div>
@@ -418,13 +544,13 @@ function CreateInvoice({ onCancel, onSuccess }) {
                                             className="w-full pl-6 pr-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500"
                                             placeholder="Price"
                                             value={line.price}
-                                            onChange={(e) => updateLine(idx, 'price', Number(e.target.value))}
+                                            onChange={(e) => updateLine(idx, 'price', e.target.value)}
                                         />
                                         <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-500 font-serif pointer-events-none">₹</span>
                                         <div className="absolute right-1 top-full text-[10px] text-slate-400">Rate/Unit</div>
                                     </div>
                                     <div className="w-24 text-right py-2 text-sm font-medium text-slate-700">
-                                        ₹{(line.qty * line.price).toLocaleString()}
+                                        ₹{(Number(String(line.qty || 0).replace(/,/g, '.')) * Number(String(line.price || 0).replace(/,/g, '.'))).toFixed(1)}
                                     </div>
                                     <button onClick={() => removeLine(idx)} className="p-2 text-red-400 hover:text-red-600">
                                         <Trash2 className="h-4 w-4" />
@@ -557,26 +683,26 @@ function CreateInvoice({ onCancel, onSuccess }) {
                         <div className="space-y-2 text-sm">
                             <div className="flex justify-between text-slate-600">
                                 <span>Note Subtotal</span>
-                                <span>₹ {linesTotal.toLocaleString()}</span>
+                                <span>₹ {linesTotal.toFixed(1)}</span>
                             </div>
                             {transport.isExtra && (
                                 <div className="flex justify-between text-slate-600">
                                     <span>Transport Costs</span>
-                                    <span>₹ {Number(transport.amount).toLocaleString()}</span>
+                                    <span>₹ {Number(transport.amount).toFixed(1)}</span>
                                 </div>
                             )}
                             <div className="flex justify-between text-slate-600">
                                 <span>GST (18%)</span>
-                                <span>₹ {tax.toLocaleString()}</span>
+                                <span>₹ {tax.toFixed(1)}</span>
                             </div>
                             {!transport.isExtra && Number(transport.amount) > 0 && (
                                 <div className="text-xs text-slate-400 italic mt-1 text-right">
-                                    * Transport (₹{transport.amount}) included in rate
+                                    * Transport (₹{Number(transport.amount).toFixed(1)}) included in rate
                                 </div>
                             )}
                             <div className="pt-3 border-t border-slate-100 flex justify-between font-bold text-lg text-slate-800">
                                 <span>Total</span>
-                                <span>₹ {total.toLocaleString()}</span>
+                                <span>₹ {total.toFixed(1)}</span>
                             </div>
                         </div>
                         <button
@@ -697,21 +823,21 @@ function InvoiceViewModal({ invoice, onClose }) {
                         <div className="w-64 space-y-2 text-sm text-right">
                             <div className="flex justify-between text-slate-600">
                                 <span>Subtotal</span>
-                                <span>₹ {Number(invoice.subtotal).toLocaleString()}</span>
+                                <span>₹ {Number(invoice.subtotal).toFixed(1)}</span>
                             </div>
                             {invoice.transport?.isExtra && (
                                 <div className="flex justify-between text-slate-600">
                                     <span>Transport</span>
-                                    <span>₹ {Number(invoice.transport.amount).toLocaleString()}</span>
+                                    <span>₹ {Number(invoice.transport.amount).toFixed(1)}</span>
                                 </div>
                             )}
                             <div className="flex justify-between text-slate-600">
                                 <span>GST (18%)</span>
-                                <span>₹ {Number(invoice.taxAmount).toLocaleString()}</span>
+                                <span>₹ {Number(invoice.taxAmount).toFixed(1)}</span>
                             </div>
                             <div className="pt-3 border-t border-slate-200 flex justify-between font-bold text-xl text-slate-900">
                                 <span>Total</span>
-                                <span>₹ {Number(invoice.totalAmount).toLocaleString()}</span>
+                                <span>₹ {Number(invoice.totalAmount).toFixed(1)}</span>
                             </div>
                         </div>
                     </div>

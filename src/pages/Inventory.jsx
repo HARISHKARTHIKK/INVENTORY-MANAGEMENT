@@ -313,7 +313,7 @@ export default function Inventory() {
                                             </td>
                                             <td className="px-6 py-4 font-mono text-xs text-slate-500 align-top">{p.sku} <span className="text-slate-300">|</span> {p.hsn}</td>
                                             <td className="px-6 py-4 align-top">
-                                                <span className={`font-bold ${isLow ? 'text-red-600' : 'text-slate-800'}`}>{totalStock.toFixed(3)} mts</span>
+                                                <span className={`font-bold ${isLow ? 'text-red-600' : 'text-slate-800'}`}>{totalStock.toFixed(1)} mts</span>
                                                 {isLow && <div className="text-[10px] text-red-500 font-medium bg-red-50 inline-block px-1 rounded mt-1">Low Stock</div>}
                                             </td>
                                             <td className="px-6 py-4 align-top">
@@ -322,7 +322,7 @@ export default function Inventory() {
                                                         Object.entries(p.locations || {}).map(([loc, qty]) => (
                                                             <div key={loc} className="flex justify-between items-center text-xs bg-slate-50 p-1.5 rounded border border-slate-100 max-w-xs">
                                                                 <span className="font-medium text-slate-600 flex items-center gap-1"><MapPin className="h-3 w-3" /> {loc}</span>
-                                                                <span className="font-bold text-slate-800">{(Number(qty) || 0).toFixed(3)} mts</span>
+                                                                <span className="font-bold text-slate-800">{(Number(qty) || 0).toFixed(1)} mts</span>
                                                             </div>
                                                         ))
                                                     ) : (
@@ -352,7 +352,7 @@ export default function Inventory() {
                                 <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 flex justify-between items-center">
                                     <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2"><MapPin className="h-5 w-5 text-blue-600" /> {location}</h3>
                                     <div className="bg-white px-3 py-1 rounded border border-slate-200 text-sm font-semibold text-slate-600">
-                                        Total: {data.totalStock.toFixed(3)} mts
+                                        Total: {data.totalStock.toFixed(1)} mts
                                     </div>
                                 </div>
                                 <div className="overflow-x-auto">
@@ -369,7 +369,7 @@ export default function Inventory() {
                                                 <tr key={idx} className="hover:bg-slate-50">
                                                     <td className="px-6 py-3 font-medium text-slate-800">{item.name}</td>
                                                     <td className="px-6 py-3">{item.sku}</td>
-                                                    <td className="px-6 py-3 text-right font-bold text-blue-600">{item.qty.toFixed(3)}</td>
+                                                    <td className="px-6 py-3 text-right font-bold text-blue-600">{item.qty.toFixed(1)}</td>
                                                 </tr>
                                             ))}
                                         </tbody>
@@ -400,7 +400,7 @@ export default function Inventory() {
                                         <td className="px-6 py-4 whitespace-nowrap">{log.createdAt?.seconds ? new Date(log.createdAt.seconds * 1000).toLocaleDateString() : '-'}</td>
                                         <td className="px-6 py-4 font-medium">{log.productName || 'Unknown'}</td>
                                         <td className="px-6 py-4">{log.location || '-'}</td>
-                                        <td className={`px-6 py-4 font-bold ${log.changeQty > 0 ? 'text-green-600' : 'text-red-600'}`}>{log.changeQty > 0 ? '+' : ''}{(Number(log.changeQty) || 0).toFixed(3)}</td>
+                                        <td className={`px-6 py-4 font-bold ${log.changeQty > 0 ? 'text-green-600' : 'text-red-600'}`}>{log.changeQty > 0 ? '+' : ''}{(Number(log.changeQty) || 0).toFixed(1)}</td>
                                         <td className="px-6 py-4 text-slate-500">{log.reason}</td>
                                     </tr>
                                 ))}

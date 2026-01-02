@@ -111,22 +111,32 @@ export const createInvoice = async (invoice, items, fromLocation) => {
             const snap = productSnaps[index];
             if (!snap.exists()) throw new Error(`Product not found: ${item.name}`);
 
-            const quantity = Number(item.quantity);
-            if (isNaN(quantity)) throw new Error(`Invalid numeric quantity for product: ${item.name || 'Unknown'}`);
+            const rawQty = item.quantity !== undefined ? item.quantity : item.qty;
+            let quantity = Number(rawQty);
+
+            // Backend Safety: Force convert to number if type check fails
+            if (typeof quantity !== 'number' || isNaN(quantity)) {
+                quantity = Number(rawQty) || 0;
+            }
+
+            if (isNaN(quantity) || rawQty === '' || rawQty === null || rawQty === undefined) {
+                throw new Error(`Invalid numeric quantity [${rawQty}] for product: ${item.name || 'Unknown'}`);
+            }
             if (quantity < 0) throw new Error(`Quantity cannot be negative for product: ${item.name}`);
 
             const data = snap.data();
-            const locations = data.locations || {};
-            const currentLocStock = Number(locations[fromLocation]) || 0;
+            const globalStock = Number(data.stockQty) || 0;
 
-            if (currentLocStock < quantity) {
+            if (globalStock < quantity) {
                 // Allow if quantity is 0, otherwise block
                 if (quantity > 0) {
-                    throw new Error(`Insufficient stock for ${item.name} at ${fromLocation}. Available: ${currentLocStock}, Requested: ${quantity}`);
+                    throw new Error(`Insufficient global stock for ${item.name}. Available: ${globalStock.toFixed(1)}, Requested: ${quantity.toFixed(1)}`);
                 }
             }
 
-            const newLocStock = Number((currentLocStock - quantity).toFixed(4));
+            const locations = data.locations || {};
+            const currentLocStock = Number(locations[fromLocation]) || 0;
+            const newLocStock = Number((currentLocStock - quantity).toFixed(1));
 
             // Derive new locations map
             const newLocations = { ...locations, [fromLocation]: newLocStock };
@@ -137,7 +147,7 @@ export const createInvoice = async (invoice, items, fromLocation) => {
                 ref: snap.ref,
                 data: {
                     locations: newLocations,
-                    stockQty: Number(newTotalStock.toFixed(4)),
+                    stockQty: Number(newTotalStock.toFixed(1)),
                     updatedAt: serverTimestamp()
                 }
             });
@@ -302,7 +312,7 @@ export const addStock = async ({ productId, location, quantity, reason }) => {
         // "Stock quantity is allowed to be ZERO".
         // addStock adds to current.
 
-        const newLocStock = Number((currentLocStock + qty).toFixed(4));
+        const newLocStock = Number((currentLocStock + qty).toFixed(1));
 
         const newLocations = { ...locations, [location]: newLocStock };
         // Recalc total from locations to be safe
@@ -310,7 +320,7 @@ export const addStock = async ({ productId, location, quantity, reason }) => {
 
         transaction.update(productRef, {
             locations: newLocations,
-            stockQty: Number(newTotalStock.toFixed(4)),
+            stockQty: Number(newTotalStock.toFixed(1)),
             updatedAt: serverTimestamp()
         });
 
@@ -353,12 +363,12 @@ export const updateStockLevel = async ({ productId, location, newQuantity, reaso
 
         if (diff === 0) return; // No change
 
-        const newLocations = { ...locations, [location]: Number(newQty.toFixed(4)) };
+        const newLocations = { ...locations, [location]: Number(newQty.toFixed(1)) };
         const newTotalStock = Object.values(newLocations).reduce((a, b) => a + (Number(b) || 0), 0);
 
         transaction.update(productRef, {
             locations: newLocations,
-            stockQty: Number(newTotalStock.toFixed(4)),
+            stockQty: Number(newTotalStock.toFixed(1)),
             updatedAt: serverTimestamp()
         });
 
@@ -367,7 +377,7 @@ export const updateStockLevel = async ({ productId, location, newQuantity, reaso
         transaction.set(moveRef, {
             productId,
             location,
-            changeQty: Number(diff.toFixed(4)),
+            changeQty: Number(diff.toFixed(1)),
             reason: reason || "Stock Correction",
             userId: uid,
             createdAt: serverTimestamp()

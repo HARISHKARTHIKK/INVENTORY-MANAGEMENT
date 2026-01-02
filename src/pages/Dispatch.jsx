@@ -8,11 +8,12 @@ export default function Dispatch() {
     const [dispatches, setDispatches] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
-    const [dateFilter, setDateFilter] = useState('');
+    const [startDate, setStartDate] = useState('');
+    const [endDate, setEndDate] = useState('');
 
     useEffect(() => {
         // Query dispatches
-        const q = query(collection(db, 'dispatches'), orderBy('createdAt', 'desc'), limit(100));
+        const q = query(collection(db, 'dispatches'), orderBy('createdAt', 'desc'), limit(200));
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -26,18 +27,36 @@ export default function Dispatch() {
         return () => unsubscribe();
     }, []);
 
-    const filteredDispatches = dispatches.filter(d => {
-        const matchesSearch =
-            (d.productName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-            (d.invoiceNo || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-            (d.location || '').toLowerCase().includes(searchTerm.toLowerCase());
+    const filteredDispatches = dispatches
+        .filter(d => {
+            const matchesSearch =
+                (d.productName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                (d.invoiceNo || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                (d.location || '').toLowerCase().includes(searchTerm.toLowerCase());
 
-        const matchesDate = dateFilter
-            ? d.createdAt?.seconds && format(new Date(d.createdAt.seconds * 1000), 'yyyy-MM-dd') === dateFilter
-            : true;
+            const dispDate = d.createdAt?.seconds ? new Date(d.createdAt.seconds * 1000) : null;
+            let matchesDate = true;
 
-        return matchesSearch && matchesDate;
-    });
+            if (dispDate) {
+                if (startDate) {
+                    const s = new Date(startDate);
+                    s.setHours(0, 0, 0, 0);
+                    if (dispDate < s) matchesDate = false;
+                }
+                if (endDate) {
+                    const e = new Date(endDate);
+                    e.setHours(23, 59, 59, 999);
+                    if (dispDate > e) matchesDate = false;
+                }
+            }
+
+            return matchesSearch && matchesDate;
+        })
+        .sort((a, b) => {
+            const timeA = a.createdAt?.seconds || 0;
+            const timeB = b.createdAt?.seconds || 0;
+            return timeB - timeA;
+        });
 
     if (loading) return <div className="flex h-96 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-blue-600" /></div>;
 
@@ -65,14 +84,31 @@ export default function Dispatch() {
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
                     </div>
-                    <div className="flex items-center gap-2 w-full sm:w-auto">
-                        <Calendar className="h-4 w-4 text-slate-500" />
-                        <input
-                            type="date"
-                            className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            value={dateFilter}
-                            onChange={(e) => setDateFilter(e.target.value)}
-                        />
+                    <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                        <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-lg px-3 py-1.5 shadow-sm">
+                            <Calendar className="h-4 w-4 text-slate-400" />
+                            <input
+                                type="date"
+                                className="outline-none text-sm text-slate-600 bg-transparent"
+                                value={startDate}
+                                onChange={(e) => setStartDate(e.target.value)}
+                            />
+                            <span className="text-slate-300 text-xs text-center px-1">to</span>
+                            <input
+                                type="date"
+                                className="outline-none text-sm text-slate-600 bg-transparent"
+                                value={endDate}
+                                onChange={(e) => setEndDate(e.target.value)}
+                            />
+                        </div>
+                        {(startDate || endDate) && (
+                            <button
+                                onClick={() => { setStartDate(''); setEndDate(''); }}
+                                className="text-xs text-red-500 hover:text-red-700 font-medium px-2 py-1 rounded hover:bg-red-50"
+                            >
+                                Clear
+                            </button>
+                        )}
                     </div>
                 </div>
 
@@ -107,7 +143,7 @@ export default function Dispatch() {
                                         </span>
                                     </td>
                                     <td className="px-6 py-4 text-right font-bold text-slate-800">
-                                        {(Number(disp.quantity) || 0).toFixed(3)}
+                                        {(Number(disp.quantity) || 0).toFixed(1)}
                                     </td>
                                     <td className="px-6 py-4">
                                         <div className="text-xs space-y-1">

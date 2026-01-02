@@ -71,35 +71,66 @@ export const SettingsProvider = ({ children }) => {
     useEffect(() => {
         let unsubscribe = () => { };
 
-        if (currentUser) {
-            setLoading(true);
-            const ref = doc(db, 'settings', currentUser.uid);
+        const fetchSettings = async () => {
+            if (!currentUser) {
+                setSettings(ensureDefaults(defaultSettings));
+                setLoading(false);
+                return;
+            }
 
-            unsubscribe = onSnapshot(ref, (snap) => {
-                if (snap.exists()) {
-                    // Merge with defaults to ensure new fields exist
-                    setSettings(ensureDefaults(snap.data()));
-                } else {
-                    // Initialize if missing
-                    setDoc(ref, defaultSettings);
-                    setSettings(defaultSettings);
+            try {
+                // 1. Try to get shared organization settings first
+                const sharedRef = doc(db, 'settings', 'organization_settings');
+                const sharedSnap = await getDoc(sharedRef);
+
+                let targetUid = 'organization_settings';
+
+                if (!sharedSnap.exists()) {
+                    // 2. If no shared settings, find the primary admin's settings to use as a template
+                    const adminQuery = query(collection(db, 'users'), where('role', '==', 'admin'), limit(1));
+                    const adminSnap = await getDocs(adminQuery);
+
+                    if (!adminSnap.empty) {
+                        targetUid = adminSnap.docs[0].id;
+                        console.log("Using Admin's settings as template:", targetUid);
+                    } else {
+                        // 3. Last fallback: use current user's settings or initialize defaults
+                        targetUid = currentUser.uid;
+                    }
                 }
-                setLoading(false);
-            }, (error) => {
-                console.error("Settings load error:", error);
-                setLoading(false);
-            });
-        } else {
-            setSettings(defaultSettings); // Fallback for no auth (shouldn't happen in protected routes)
-            setLoading(false);
-        }
 
+                const ref = doc(db, 'settings', targetUid);
+                unsubscribe = onSnapshot(ref, (snap) => {
+                    if (snap.exists()) {
+                        setSettings(ensureDefaults(snap.data()));
+                    } else {
+                        // If we were looking for organization_settings and it doesn't exist, create it
+                        if (targetUid === 'organization_settings') {
+                            setDoc(ref, defaultSettings);
+                            setSettings(ensureDefaults(defaultSettings));
+                        } else {
+                            // If looking for admin setts and failed, fallback to defaults
+                            setSettings(ensureDefaults(defaultSettings));
+                        }
+                    }
+                    setLoading(false);
+                }, (error) => {
+                    console.error("Settings stream error:", error);
+                    setLoading(false);
+                });
+            } catch (error) {
+                console.error("Master settings discovery failed:", error);
+                setSettings(ensureDefaults(defaultSettings));
+                setLoading(false);
+            }
+        };
+
+        fetchSettings();
         return () => unsubscribe();
     }, [currentUser]);
 
     const updateSettings = async (newSettings) => {
-        if (!currentUser) return;
-        const ref = doc(db, 'settings', currentUser.uid);
+        const ref = doc(db, 'settings', 'organization_settings');
         await setDoc(ref, newSettings, { merge: true });
     };
 

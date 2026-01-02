@@ -123,7 +123,7 @@ export default function Dashboard() {
                                     </div>
                                     <div className="mb-5">
                                         <div className="flex items-baseline gap-1">
-                                            <span className={`text-3xl font-bold ${isLow ? 'text-amber-600' : 'text-slate-900'}`}>{totalStock.toFixed(3)}</span>
+                                            <span className={`text-3xl font-bold ${isLow ? 'text-amber-600' : 'text-slate-900'}`}>{totalStock.toFixed(1)}</span>
                                             <span className="text-sm text-slate-500 font-medium">mts</span>
                                         </div>
                                         <p className="text-xs text-slate-400 font-mono mt-1">SKU: {p.sku || '-'}</p>
@@ -137,7 +137,7 @@ export default function Dashboard() {
                                                         <div className="w-1.5 h-1.5 rounded-full bg-slate-300"></div>
                                                         {loc}
                                                     </span>
-                                                    <span className="font-medium text-slate-700">{(Number(qty) || 0).toFixed(3)}</span>
+                                                    <span className="font-medium text-slate-700">{(Number(qty) || 0).toFixed(1)}</span>
                                                 </div>
                                             ))
                                         ) : (
@@ -198,7 +198,7 @@ export default function Dashboard() {
                                             </span>
                                         </td>
                                         <td className="px-6 py-3 text-right font-bold text-slate-800">
-                                            {(Number(d.quantity) || 0).toFixed(3)}
+                                            {(Number(d.quantity) || 0).toFixed(1)}
                                         </td>
                                         <td className="px-6 py-3 text-xs text-slate-500">
                                             {d.transport?.vehicleNumber || '-'}
