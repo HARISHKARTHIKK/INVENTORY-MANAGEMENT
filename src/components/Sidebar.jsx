@@ -1,6 +1,8 @@
-import { LayoutDashboard, Package, ClipboardList, FileText, Users, BarChart3, Settings, Truck, LogOut } from 'lucide-react';
+import { LayoutDashboard, Package, ClipboardList, FileText, Users, BarChart3, Settings, Truck, LogOut, X } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { cn } from '../lib/utils';
+import { useAuth } from '../context/AuthContext';
+import { useSettings } from '../context/SettingsContext';
 
 const navigation = [
     { name: 'Dashboard', href: '/', icon: LayoutDashboard },
@@ -12,10 +14,7 @@ const navigation = [
     { name: 'Settings', href: '/settings', icon: Settings },
 ];
 
-import { useAuth } from '../context/AuthContext';
-import { useSettings } from '../context/SettingsContext';
-
-export default function Sidebar() {
+export default function Sidebar({ isOpen, onClose }) {
     const { settings } = useSettings();
     const { userRole, logout } = useAuth();
 
@@ -30,15 +29,27 @@ export default function Sidebar() {
     });
 
     return (
-        <div className="flex flex-col w-64 bg-slate-900 border-r border-slate-800 h-screen fixed left-0 top-0 text-white shadow-xl z-20">
-            <div className="flex h-16 items-center pl-6 border-b border-slate-800 bg-slate-900">
+        <aside className={cn(
+            "fixed inset-y-0 left-0 flex flex-col w-64 bg-slate-900 border-r border-slate-800 text-white shadow-2xl z-40 transition-transform duration-300 ease-in-out lg:static lg:translate-x-0 lg:z-0",
+            isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+        )}>
+            <div className="flex h-16 items-center justify-between px-6 border-b border-slate-800 bg-slate-900">
                 <h1 className="text-xl font-bold tracking-wider text-blue-400">MAB<span className="text-white"> CHEM</span></h1>
+                <button
+                    onClick={onClose}
+                    className="lg:hidden p-2 -mr-2 text-slate-400 hover:text-white transition-colors"
+                >
+                    <X className="h-5 w-5" />
+                </button>
             </div>
             <nav className="flex-1 px-3 py-6 space-y-1 overflow-y-auto">
                 {filteredNav.map((item) => (
                     <NavLink
                         key={item.name}
                         to={item.href}
+                        onClick={() => {
+                            if (window.innerWidth < 1024) onClose();
+                        }}
                         className={({ isActive }) =>
                             cn(
                                 'group flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-all',
@@ -67,6 +78,6 @@ export default function Sidebar() {
                     </div>
                 </button>
             </div>
-        </div>
+        </aside>
     );
 }

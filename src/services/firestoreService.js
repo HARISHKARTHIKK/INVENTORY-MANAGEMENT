@@ -163,9 +163,12 @@ export const createInvoice = async (invoice, items, fromLocation) => {
 
         // 3. Write Invoice with itemsSummary
         const invoiceRef = doc(collection(db, "invoices"));
+        const taxRate = Number(invoice.taxRate) || 18; // Passed from UI or default
+
         transaction.set(invoiceRef, {
             ...invoice,
             fromLocation,
+            taxRate,
             itemsSummary, // Added for Report Efficiency
             userId: uid,
             createdAt: serverTimestamp()
@@ -206,14 +209,29 @@ export const createInvoice = async (invoice, items, fromLocation) => {
                 createdAt: serverTimestamp()
             });
 
+            // Calculate Item specific Financials for Dispatch
+            const itemQty = Number(item.quantity) || 0;
+            const itemRate = Number(item.price) || 0;
+            const itemSubtotal = itemQty * itemRate;
+            const itemTax = itemSubtotal * (taxRate / 100);
+            const itemTotal = itemSubtotal + itemTax;
+
             // Dispatch Record (Auto-Create)
             const dispatchRef = doc(collection(db, "dispatches"));
             transaction.set(dispatchRef, {
                 invoiceId: invoiceRef.id,
                 invoiceNo: invoice.invoiceNo,
+                customerName: invoice.customerName || '',
+                remarks: invoice.remarks || '',
                 productId: item.productId,
                 productName: item.name || '',
-                quantity: Number(item.quantity),
+                quantity: itemQty,
+                bags: Number(item.bags) || 0,
+                bagWeight: Number(item.bagWeight) || 0,
+                unitPrice: itemRate,
+                taxRate: taxRate,
+                taxAmount: Number(itemTax.toFixed(2)),
+                itemTotal: Number(itemTotal.toFixed(2)),
                 location: fromLocation,
                 transport: invoice.transport || {},
                 userId: uid,
@@ -251,12 +269,23 @@ export const backfillDispatches = async () => {
 
             const promises = itemsSnap.docs.map(async (itemDoc) => {
                 const item = itemDoc.data();
+                const itemQty = Number(item.quantity) || 0;
+                const itemRate = Number(item.price) || 0;
+                const taxRate = inv.taxRate || 18;
+                const itemSubtotal = itemQty * itemRate;
+                const itemTax = itemSubtotal * (taxRate / 100);
+                const itemTotal = itemSubtotal + itemTax;
+
                 await addDoc(collection(db, "dispatches"), {
                     invoiceId: inv.id,
                     invoiceNo: inv.invoiceNo || "UNKNOWN",
                     productId: item.productId,
                     productName: item.productName || item.name || "Unknown Product",
-                    quantity: Number(item.quantity),
+                    quantity: itemQty,
+                    unitPrice: itemRate,
+                    taxRate: taxRate,
+                    taxAmount: Number(itemTax.toFixed(2)),
+                    itemTotal: Number(itemTotal.toFixed(2)),
                     location: inv.fromLocation || "Warehouse A",
                     transport: inv.transport || {},
                     userId: inv.userId || auth.currentUser.uid,

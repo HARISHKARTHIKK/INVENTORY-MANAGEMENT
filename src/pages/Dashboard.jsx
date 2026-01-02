@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Loader2, Plus, ArrowRight, Truck, MapPin, Package, AlertTriangle, Box, X } from 'lucide-react';
 import { db } from '../lib/firebase';
@@ -43,6 +43,10 @@ export default function Dashboard() {
         };
     }, []);
 
+    const sortedProducts = useMemo(() => {
+        return [...products].sort((a, b) => (Number(a.sortOrder) || 999) - (Number(b.sortOrder) || 999));
+    }, [products]);
+
     const handleOpenStockModal = (product) => {
         setSelectedProduct(product);
         setStockForm({ location: '', quantity: '', reason: 'Dashboard Update' });
@@ -75,20 +79,19 @@ export default function Dashboard() {
     const LOCATIONS = settings?.locations?.filter(l => l.active).map(l => l.name) || ['Warehouse A', 'Warehouse B', 'Store Front', 'Factory'];
 
     return (
-        <div className="space-y-8 animate-fade-in-up">
+        <div className="space-y-1 animate-fade-in-up">
             {/* Header Actions */}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1">
                 <div>
                     <h2 className="text-2xl font-bold text-slate-800">Dashboard</h2>
-                    <p className="text-sm text-slate-500 mt-1">Real-time inventory and dispatch overview</p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex w-full sm:w-auto gap-2">
                     {userRole !== 'viewer' && (
                         <button
                             onClick={() => navigate('/invoices', { state: { create: true } })}
-                            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg text-sm font-semibold shadow-lg shadow-blue-500/20 active:scale-95 transition-all"
+                            className="w-full sm:w-auto flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-3 sm:py-2.5 rounded-lg text-sm font-semibold shadow-lg shadow-blue-500/20 active:scale-95 transition-all"
                         >
-                            <Plus className="h-4 w-4" /> New Invoice
+                            <Plus className="h-3 w-4" /> New Invoice
                         </button>
                     )}
                 </div>
@@ -99,14 +102,14 @@ export default function Dashboard() {
                 <div className="flex items-center justify-between mb-4">
                     <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
                         <Package className="h-5 w-5 text-blue-600" />
-                        Inventory Status
+                        STOCK DETAILS (As on Today)
                     </h3>
                     <button onClick={() => navigate('/inventory')} className="text-sm text-blue-600 font-medium hover:underline flex items-center gap-1">
                         View All <ArrowRight className="h-3 w-3" />
                     </button>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                    {products.map(p => {
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2">
+                    {sortedProducts.map(p => {
                         const totalStock = Object.values(p.locations || {}).reduce((a, b) => {
                             const val = Number(b);
                             return a + (isNaN(val) ? 0 : val);
@@ -115,44 +118,34 @@ export default function Dashboard() {
                         const hasLocations = p.locations && Object.keys(p.locations).length > 0;
 
                         return (
-                            <div key={p.id} className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 min-h-[240px] flex flex-col justify-between hover:shadow-md transition-shadow relative overflow-hidden group">
+                            <div key={p.id} className="bg-white rounded-xl shadow-sm border border-slate-100 p-4 flex flex-col justify-between hover:shadow-md transition-shadow relative overflow-hidden group">
                                 <div>
-                                    <div className="flex justify-between items-start mb-3">
-                                        <h4 className="font-bold text-slate-800 truncate pr-4 text-lg" title={p.name}>{p.name}</h4>
-                                        {isLow && <AlertTriangle className="h-5 w-5 text-amber-500 flex-shrink-0" />}
-                                    </div>
-                                    <div className="mb-5">
-                                        <div className="flex items-baseline gap-1">
-                                            <span className={`text-3xl font-bold ${isLow ? 'text-amber-600' : 'text-slate-900'}`}>{totalStock.toFixed(1)}</span>
-                                            <span className="text-sm text-slate-500 font-medium">mts</span>
-                                        </div>
-                                        <p className="text-xs text-slate-400 font-mono mt-1">SKU: {p.sku || '-'}</p>
+                                    <div className="flex justify-between items-start mb-2">
+                                        <h4 className="font-bold text-slate-800 truncate pr-4 text-base" title={p.name}>{p.name}</h4>
+                                        {isLow && <AlertTriangle className="h-4 w-4 text-amber-500 flex-shrink-0" />}
                                     </div>
 
-                                    <div className="space-y-2 pt-3 border-t border-slate-100 mb-2">
-                                        {hasLocations ? (
-                                            Object.entries(p.locations).map(([loc, qty]) => (
-                                                <div key={loc} className="flex justify-between items-center text-xs">
-                                                    <span className="text-slate-500 flex items-center gap-1">
-                                                        <div className="w-1.5 h-1.5 rounded-full bg-slate-300"></div>
-                                                        {loc}
-                                                    </span>
-                                                    <span className="font-medium text-slate-700">{(Number(qty) || 0).toFixed(1)}</span>
+                                    {/* Dashboard: Location Specific Prominent Stock info */}
+                                    <div className="mb-2 space-y-1.5">
+                                        {hasLocations && Object.entries(p.locations).map(([loc, qty]) => (
+                                            <div key={loc} className="flex justify-between items-center bg-slate-50/50 px-2 py-1.5 rounded-lg">
+                                                <span className="text-xs font-extrabold text-slate-500 uppercase tracking-tighter">{loc}</span>
+                                                <div className="text-right">
+                                                    <span className="text-xl font-black text-slate-800 leading-none">{(Number(qty) || 0).toFixed(1)}</span>
+                                                    <span className="text-[10px] font-bold text-slate-400 ml-1 uppercase">mts</span>
                                                 </div>
-                                            ))
-                                        ) : (
-                                            <span className="text-xs text-slate-400 italic">No location allocated</span>
-                                        )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <div className="border-t border-slate-50 mb-2" />
+                                    <div className="mb-3">
+                                        <div className="flex items-baseline gap-1">
+                                            <span className={`text-xs font-bold ${isLow ? 'text-amber-600' : 'text-slate-500'}`}>{totalStock.toFixed(1)}</span>
+                                            <span className="text-[10px] text-slate-400 font-medium uppercase tracking-tighter">TOTAL STOCK (mts)</span>
+                                        </div>
                                     </div>
                                 </div>
-                                {userRole !== 'viewer' && (
-                                    <button
-                                        onClick={() => handleOpenStockModal(p)}
-                                        className="w-full mt-2 flex items-center justify-center gap-2 bg-slate-50 hover:bg-slate-100 text-slate-700 py-2.5 rounded-lg text-sm font-semibold transition-colors border border-slate-200"
-                                    >
-                                        <Box className="h-4 w-4" /> Update Stock
-                                    </button>
-                                )}
+
                             </div>
                         );
                     })}
@@ -176,45 +169,108 @@ export default function Dashboard() {
                     </button>
                 </div>
                 <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                    <div className="overflow-x-auto">
+                    {/* Desktop Table */}
+                    <div className="hidden sm:block overflow-x-auto">
                         <table className="w-full text-left text-sm text-slate-600">
-                            <thead className="bg-slate-50 text-slate-700 font-semibold uppercase text-xs">
+                            <thead className="bg-slate-50 text-slate-700 font-black uppercase text-[11px] tracking-wider">
                                 <tr>
-                                    <th className="px-6 py-3">Invoice</th>
-                                    <th className="px-6 py-3">Product</th>
-                                    <th className="px-6 py-3">Origin</th>
-                                    <th className="px-6 py-3 text-right">Qty (mts)</th>
-                                    <th className="px-6 py-3">Vehicle</th>
+                                    <th className="px-3 py-2">Date</th>
+                                    <th className="px-3 py-2">Invoice</th>
+                                    <th className="px-3 py-2">Customer</th>
+                                    <th className="px-3 py-2">Product</th>
+                                    <th className="px-3 py-2">No. of Bags</th>
+                                    <th className="px-3 py-2 text-right">Qty</th>
+                                    <th className="px-3 py-2 text-right">Basic</th>
+                                    <th className="px-3 py-2 text-right">Tax (GST)</th>
+                                    <th className="px-3 py-2 text-right">Amount</th>
+                                    <th className="px-3 py-2">Vehicle</th>
+                                    <th className="px-3 py-2">Remarks</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
                                 {dispatches.map(d => (
                                     <tr key={d.id} className="hover:bg-slate-50 transition-colors">
-                                        <td className="px-6 py-3 font-mono text-slate-700">{d.invoiceNo}</td>
-                                        <td className="px-6 py-3 font-medium text-slate-900">{d.productName || 'Unknown'}</td>
-                                        <td className="px-6 py-3">
-                                            <span className="flex items-center gap-1 text-[11px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full w-fit">
-                                                <MapPin className="h-3 w-3" /> {d.location}
-                                            </span>
+                                        <td className="px-3 py-2 text-slate-500 whitespace-nowrap text-[14px]">
+                                            {d.createdAt?.seconds ? format(new Date(d.createdAt.seconds * 1000), 'dd MMM') : '-'}
                                         </td>
-                                        <td className="px-6 py-3 text-right font-bold text-slate-800">
-                                            {(Number(d.quantity) || 0).toFixed(1)}
+                                        <td className="px-3 py-2 font-mono text-slate-700 text-[14px]">{d.invoiceNo}</td>
+                                        <td className="px-3 py-2 text-slate-900 font-bold truncate max-w-[150px] text-[14px]" title={d.customerName}>
+                                            {d.customerName || '-'}
                                         </td>
-                                        <td className="px-6 py-3 text-xs text-slate-500">
+                                        <td className="px-3 py-2 font-bold text-slate-900 text-[14px] leading-tight truncate max-w-[120px]">{d.productName || 'Unknown'}</td>
+                                        <td className="px-3 py-2 text-[14px] text-slate-500 font-bold whitespace-nowrap">
+                                            {d.bags ? `${d.bags} x ${d.bagWeight}kg` : '-'}
+                                        </td>
+
+                                        <td className="px-3 py-2 text-right font-bold text-slate-800 text-[14px]">
+                                            {(Number(d.quantity) || 0).toFixed(1)} <span className="text-[11px] text-slate-400 font-normal">mts</span>
+                                        </td>
+                                        <td className="px-3 py-2 text-right text-slate-700 text-[14px] font-bold text-nowrap">
+                                            ₹{((Number(d.quantity) || 0) * (Number(d.unitPrice) || 0)).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                                        </td>
+                                        <td className="px-3 py-2 text-right text-slate-500 text-[14px] font-medium text-nowrap">
+                                            ₹{(Number(d.taxAmount) || 0).toFixed(0)}
+                                        </td>
+                                        <td className="px-3 py-2 text-right font-black text-slate-900 text-[14px] text-nowrap">
+                                            ₹{(Number(d.itemTotal) || 0).toFixed(0)}
+                                        </td>
+                                        <td className="px-3 py-2 text-[14px] font-black text-blue-600 whitespace-nowrap">
                                             {d.transport?.vehicleNumber || '-'}
+                                        </td>
+                                        <td className="px-3 py-2 text-[14px] text-slate-800 font-bold truncate max-w-[180px]" title={d.remarks}>
+                                            {d.remarks || '-'}
                                         </td>
                                     </tr>
                                 ))}
-                                {dispatches.length === 0 && (
-                                    <tr>
-                                        <td colSpan="6" className="px-6 py-12 text-center text-slate-400">
-                                            No recent dispatches today.
-                                        </td>
-                                    </tr>
-                                )}
                             </tbody>
                         </table>
                     </div>
+
+                    {/* Mobile Cards */}
+                    <div className="sm:hidden divide-y divide-slate-100">
+                        {dispatches.map(d => (
+                            <div key={d.id} className="p-3 bg-white flex flex-col gap-1.5">
+                                <div className="flex justify-between items-start">
+                                    <div className="space-y-0.5">
+                                        <div className="font-mono font-bold text-slate-900 text-[10px]">{d.invoiceNo}</div>
+                                        <div className="text-sm text-slate-900 font-black uppercase tracking-tight leading-none">{d.customerName || 'No Customer'}</div>
+                                    </div>
+                                    <div className="text-right">
+                                        <div className="text-sm font-black text-blue-600">₹{(Number(d.itemTotal) || 0).toFixed(0)}</div>
+                                        <div className="text-[8px] text-slate-500 font-bold uppercase mt-0.5">Basic: ₹{((Number(d.quantity) || 0) * (Number(d.unitPrice) || 0)).toFixed(0)}</div>
+                                    </div>
+                                </div>
+                                <div className="flex justify-between items-center bg-slate-50 px-2 py-1 rounded">
+                                    <div className="font-bold text-slate-900 text-[12px] truncate max-w-[150px]">{d.productName || 'Unknown'}</div>
+                                    <div className="text-[9px] font-bold text-blue-600">
+                                        {d.bags ? `${d.bags} x ${d.bagWeight}kg` : '-'}
+                                    </div>
+                                </div>
+                                <div className="flex justify-between items-end border-t border-slate-50 pt-1.5">
+                                    <div className="space-y-1">
+                                        <div className="text-[11px] text-blue-700 font-black flex items-center gap-1">
+                                            <Truck className="h-3 w-3" /> {d.transport?.vehicleNumber || 'NO VEHICLE'}
+                                        </div>
+                                        <span className="flex items-center gap-1 text-[9px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded uppercase w-fit">
+                                            <MapPin className="h-2 w-2" /> {d.location}
+                                        </span>
+                                    </div>
+                                    <div className="text-right space-y-0.5">
+                                        <div className="text-[10px] text-slate-900 font-black">
+                                            {(Number(d.quantity) || 0).toFixed(1)} mts
+                                        </div>
+                                        {d.remarks && <div className="text-[11px] text-slate-700 font-bold italic mt-0.5 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-100 max-w-[180px]">Note: {d.remarks}</div>}
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {dispatches.length === 0 && (
+                        <div className="px-6 py-12 text-center text-slate-400 bg-white">
+                            No recent dispatches today.
+                        </div>
+                    )}
                 </div>
             </section>
 

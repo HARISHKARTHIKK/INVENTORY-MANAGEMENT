@@ -120,7 +120,7 @@ export default function Settings() {
 
     return (
         <div className="space-y-6 animate-fade-in-up pb-10">
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
                     <h2 className="text-2xl font-bold text-slate-800">Settings</h2>
                     <p className="text-sm text-slate-500">Manage application configuration and defaults</p>
@@ -128,7 +128,7 @@ export default function Settings() {
                 <button
                     onClick={handleSave}
                     disabled={saving}
-                    className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-semibold shadow-lg shadow-blue-500/20 active:scale-95 transition-all disabled:opacity-70"
+                    className="w-full sm:w-auto flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 sm:py-2 rounded-lg font-semibold shadow-lg shadow-blue-500/20 active:scale-95 transition-all disabled:opacity-70"
                 >
                     {saving ? <Loader2 className="animate-spin h-4 w-4" /> : <Save className="h-4 w-4" />}
                     Save Changes
@@ -136,13 +136,13 @@ export default function Settings() {
             </div>
 
             <div className="flex flex-col lg:flex-row gap-6">
-                {/* Sidebar Tabs */}
-                <div className="w-full lg:w-64 flex-shrink-0 space-y-1">
+                {/* Sidebar Tabs - Horizontal Scroll on Mobile */}
+                <div className="w-full lg:w-64 flex-shrink-0 flex flex-row lg:flex-col overflow-x-auto lg:overflow-x-visible items-center lg:items-stretch gap-1 pb-2 lg:pb-0 scrollbar-hide">
                     {tabs.map(tab => (
                         <button
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id)}
-                            className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg transition-all ${activeTab === tab.id ? 'bg-blue-50 text-blue-700 ring-1 ring-blue-200' : 'text-slate-600 hover:bg-slate-50'}`}
+                            className={`flex-shrink-0 whitespace-nowrap flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg transition-all ${activeTab === tab.id ? 'bg-blue-50 text-blue-700 ring-1 ring-blue-200' : 'text-slate-600 hover:bg-slate-50'}`}
                         >
                             <tab.icon className={`h-4 w-4 ${activeTab === tab.id ? 'text-blue-600' : 'text-slate-400'}`} />
                             {tab.label}
@@ -151,31 +151,31 @@ export default function Settings() {
                 </div>
 
                 {/* Content */}
-                <div className="flex-1 bg-white rounded-xl shadow-sm border border-slate-200 p-6 min-h-[500px]">
+                <div className="flex-1 bg-white rounded-xl shadow-sm border border-slate-200 p-4 sm:p-6 min-h-[500px]">
                     {activeTab === 'company' && (
                         <div className="space-y-4 max-w-lg">
                             <h3 className="text-lg font-bold text-slate-800 mb-4 pb-2 border-b">Company Details</h3>
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">Company Name</label>
-                                <input type="text" className="w-full p-2 border rounded" value={formData.company.name} onChange={e => handleChange('company', 'name', e.target.value)} />
+                                <input type="text" className="w-full p-2.5 border rounded-lg" value={formData.company.name} onChange={e => handleChange('company', 'name', e.target.value)} />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">Full Address</label>
-                                <textarea rows="3" className="w-full p-2 border rounded" value={formData.company.address} onChange={e => handleChange('company', 'address', e.target.value)} />
+                                <textarea rows="3" className="w-full p-2.5 border rounded-lg" value={formData.company.address} onChange={e => handleChange('company', 'address', e.target.value)} />
                             </div>
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium text-slate-700 mb-1">GSTIN</label>
-                                    <input type="text" className="w-full p-2 border rounded" value={formData.company.gstin} onChange={e => handleChange('company', 'gstin', e.target.value)} />
+                                    <input type="text" className="w-full p-2.5 border rounded-lg" value={formData.company.gstin} onChange={e => handleChange('company', 'gstin', e.target.value)} />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-slate-700 mb-1">PAN</label>
-                                    <input type="text" className="w-full p-2 border rounded" value={formData.company.pan} onChange={e => handleChange('company', 'pan', e.target.value)} />
+                                    <input type="text" className="w-full p-2.5 border rounded-lg" value={formData.company.pan} onChange={e => handleChange('company', 'pan', e.target.value)} />
                                 </div>
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">State</label>
-                                <input type="text" className="w-full p-2 border rounded" value={formData.company.state} onChange={e => handleChange('company', 'state', e.target.value)} />
+                                <input type="text" className="w-full p-2.5 border rounded-lg" value={formData.company.state} onChange={e => handleChange('company', 'state', e.target.value)} />
                             </div>
                         </div>
                     )}
@@ -185,31 +185,31 @@ export default function Settings() {
                             <h3 className="text-lg font-bold text-slate-800 mb-4 pb-2 border-b">Invoice Configuration</h3>
                             <div className="flex items-center justify-between py-2">
                                 <span className="font-medium text-slate-700">Manual Invoice Numbers</span>
-                                <input type="checkbox" checked={formData.invoice.manualNo} onChange={e => handleChange('invoice', 'manualNo', e.target.checked)} className="h-5 w-5 accent-blue-600" />
+                                <input type="checkbox" checked={formData.invoice.manualNo} onChange={e => handleChange('invoice', 'manualNo', e.target.checked)} className="h-6 w-6 accent-blue-600 rounded" />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">Invoice Prefix (if auto)</label>
-                                <input type="text" className="w-full p-2 border rounded uppercase" value={formData.invoice.prefix} onChange={e => handleChange('invoice', 'prefix', e.target.value)} />
+                                <input type="text" className="w-full p-2.5 border rounded-lg uppercase" value={formData.invoice.prefix} onChange={e => handleChange('invoice', 'prefix', e.target.value)} />
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium text-slate-700 mb-1">Default Tax %</label>
-                                    <input type="number" className="w-full p-2 border rounded" value={formData.invoice.tax} onChange={e => handleChange('invoice', 'tax', parseFloat(e.target.value))} />
+                                    <input type="number" className="w-full p-2.5 border rounded-lg" value={formData.invoice.tax} onChange={e => handleChange('invoice', 'tax', parseFloat(e.target.value))} />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-slate-700 mb-1">Enable Round Off</label>
-                                    <select className="w-full p-2 border rounded" value={formData.invoice.roundOff ? 'yes' : 'no'} onChange={e => handleChange('invoice', 'roundOff', e.target.value === 'yes')}>
+                                    <select className="w-full p-2.5 border rounded-lg" value={formData.invoice.roundOff ? 'yes' : 'no'} onChange={e => handleChange('invoice', 'roundOff', e.target.value === 'yes')}>
                                         <option value="yes">Yes</option>
                                         <option value="no">No</option>
                                     </select>
                                 </div>
                             </div>
-                            <div className="flex items-center justify-between py-2 border-t pt-4 mt-4">
+                            <div className="flex items-center justify-between py-2 border-t pt-4 mt-4 text-sm sm:text-base">
                                 <div>
                                     <span className="font-medium text-slate-700 block">Lock After Dispatch</span>
                                     <span className="text-xs text-slate-500">Prevent editing invoices that have been dispatched</span>
                                 </div>
-                                <input type="checkbox" checked={formData.invoice.lockAfterDispatch !== false} onChange={e => handleChange('invoice', 'lockAfterDispatch', e.target.checked)} className="h-5 w-5 accent-blue-600" />
+                                <input type="checkbox" checked={formData.invoice.lockAfterDispatch !== false} onChange={e => handleChange('invoice', 'lockAfterDispatch', e.target.checked)} className="h-6 w-6 accent-blue-600 rounded" />
                             </div>
                         </div>
                     )}
@@ -222,35 +222,35 @@ export default function Settings() {
                                     <span className="font-medium text-slate-700 block">Allow Negative Stock</span>
                                     <span className="text-xs text-slate-500">Allow dispatch/sales even if stock is 0</span>
                                 </div>
-                                <input type="checkbox" checked={formData.inventory.allowNegative} onChange={e => handleChange('inventory', 'allowNegative', e.target.checked)} className="h-5 w-5 accent-blue-600" />
+                                <input type="checkbox" checked={formData.inventory.allowNegative} onChange={e => handleChange('inventory', 'allowNegative', e.target.checked)} className="h-6 w-6 accent-blue-600 rounded" />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">Default Low Stock Threshold (mts)</label>
-                                <input type="number" className="w-full p-2 border rounded" value={formData.inventory.lowStock} onChange={e => handleChange('inventory', 'lowStock', parseFloat(e.target.value))} />
+                                <input type="number" className="w-full p-2.5 border rounded-lg" value={formData.inventory.lowStock} onChange={e => handleChange('inventory', 'lowStock', parseFloat(e.target.value))} />
                             </div>
                         </div>
                     )}
 
                     {activeTab === 'locations' && (
                         <div className="space-y-4">
-                            <div className="flex justify-between items-center mb-4 pb-2 border-b">
+                            <div className="flex justify-between items-center mb-4 pb-2 border-b text-sm sm:text-base">
                                 <h3 className="text-lg font-bold text-slate-800">Manage Locations</h3>
-                                <button onClick={addLocation} className="text-sm bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded flex items-center gap-1">
-                                    <Plus className="h-3 w-3" /> Add
+                                <button onClick={addLocation} className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg flex items-center gap-1 font-medium">
+                                    <Plus className="h-4 w-4" /> Add New
                                 </button>
                             </div>
-                            <div className="space-y-3">
+                            <div className="grid grid-cols-1 gap-4">
                                 {formData.locations.map((loc, idx) => (
-                                    <div key={idx} className={`flex flex-col gap-3 p-3 rounded-lg border ${loc.active ? 'bg-white border-slate-200' : 'bg-slate-50 border-slate-100 opacity-60'}`}>
-                                        <div className="flex items-center gap-3">
-                                            <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                                    <div key={idx} className={`p-4 rounded-xl border transition-all ${loc.active ? 'bg-white border-slate-200 shadow-sm' : 'bg-slate-50 border-slate-100 opacity-60'}`}>
+                                        <div className="flex flex-col gap-4">
+                                            <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                                                 <div className="space-y-1">
-                                                    <label className="text-[10px] text-slate-500 uppercase font-bold">Location Name</label>
-                                                    <input type="text" placeholder="Location Name" className="w-full p-2 border rounded text-sm font-medium" value={loc.name} onChange={e => handleLocationChange(idx, 'name', e.target.value)} />
+                                                    <label className="text-[10px] text-slate-500 uppercase font-black tracking-widest">Location Name</label>
+                                                    <input type="text" placeholder="Location Name" className="w-full p-2.5 border rounded-lg text-sm font-bold text-slate-800" value={loc.name} onChange={e => handleLocationChange(idx, 'name', e.target.value)} />
                                                 </div>
                                                 <div className="space-y-1">
-                                                    <label className="text-[10px] text-slate-500 uppercase font-bold">Type</label>
-                                                    <select className="w-full p-2 border rounded text-sm" value={loc.type} onChange={e => handleLocationChange(idx, 'type', e.target.value)}>
+                                                    <label className="text-[10px] text-slate-500 uppercase font-black tracking-widest">Type</label>
+                                                    <select className="w-full p-2.5 border rounded-lg text-sm" value={loc.type} onChange={e => handleLocationChange(idx, 'type', e.target.value)}>
                                                         <option value="Warehouse">Warehouse</option>
                                                         <option value="Plant">Plant</option>
                                                         <option value="Yard">Yard</option>
@@ -258,16 +258,16 @@ export default function Settings() {
                                                     </select>
                                                 </div>
                                                 <div className="space-y-1">
-                                                    <label className="text-[10px] text-slate-500 uppercase font-bold">Invoice Prefix</label>
-                                                    <input type="text" placeholder="e.g. MUM" className="w-full p-2 border rounded text-sm font-mono uppercase" value={loc.prefix || ''} onChange={e => handleLocationChange(idx, 'prefix', e.target.value)} />
+                                                    <label className="text-[10px] text-slate-500 uppercase font-black tracking-widest">Invoice Prefix</label>
+                                                    <input type="text" placeholder="e.g. MUM" className="w-full p-2.5 border rounded-lg text-sm font-mono uppercase font-bold" value={loc.prefix || ''} onChange={e => handleLocationChange(idx, 'prefix', e.target.value)} />
                                                 </div>
                                                 <div className="space-y-1">
-                                                    <label className="text-[10px] text-slate-500 uppercase font-bold">Start Invoice #</label>
-                                                    <input type="number" placeholder="1001" className="w-full p-2 border rounded text-sm font-mono" value={loc.nextNumber || ''} onChange={e => handleLocationChange(idx, 'nextNumber', parseInt(e.target.value) || 0)} />
+                                                    <label className="text-[10px] text-slate-500 uppercase font-black tracking-widest">Start Inv #</label>
+                                                    <input type="number" placeholder="1001" className="w-full p-2.5 border rounded-lg text-sm font-mono font-bold" value={loc.nextNumber || ''} onChange={e => handleLocationChange(idx, 'nextNumber', parseInt(e.target.value) || 0)} />
                                                 </div>
                                             </div>
-                                            <div className="pt-5">
-                                                <button onClick={() => toggleLocation(idx)} className={`px-3 py-2 text-xs font-semibold rounded ${loc.active ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-slate-200 text-slate-600 hover:bg-slate-300'}`}>
+                                            <div className="flex justify-end pt-3 border-t border-slate-50">
+                                                <button onClick={() => toggleLocation(idx)} className={`px-4 py-2 text-xs font-black rounded-lg uppercase tracking-wider ${loc.active ? 'bg-green-50 text-green-700 hover:bg-green-100 border border-green-200' : 'bg-slate-200 text-slate-600 hover:bg-slate-300'}`}>
                                                     {loc.active ? 'Active' : 'Inactive'}
                                                 </button>
                                             </div>
@@ -287,13 +287,13 @@ export default function Settings() {
                             </div>
                             <div className="flex items-center justify-between py-2">
                                 <span className="font-medium text-slate-700">Enable Dispatch Module</span>
-                                <input type="checkbox" checked={formData.transport.enable} onChange={e => handleChange('transport', 'enable', e.target.checked)} className="h-5 w-5 accent-blue-600" />
+                                <input type="checkbox" checked={formData.transport.enable} onChange={e => handleChange('transport', 'enable', e.target.checked)} className="h-6 w-6 accent-blue-600 rounded" />
                             </div>
                             <div className="pt-4 border-t">
                                 <label className="block text-sm font-medium text-slate-700 mb-2">Transport Modes (comma separated)</label>
                                 <input
                                     type="text"
-                                    className="w-full p-2 border rounded bg-white text-sm"
+                                    className="w-full p-2.5 border rounded-lg bg-white text-sm"
                                     placeholder="By Road, By Air, By Sea"
                                     value={(formData.transport.modes || []).join(', ')}
                                     onChange={e => handleChange('transport', 'modes', e.target.value.split(',').map(s => s.trim()).filter(Boolean))}
@@ -305,17 +305,17 @@ export default function Settings() {
                     {activeTab === 'users' && (
                         <div className="space-y-4">
                             <h3 className="text-lg font-bold text-slate-800 mb-4 pb-2 border-b">User Management</h3>
-                            {loadingUsers ? <Loader2 className="animate-spin h-6 w-6 text-blue-600" /> : (
-                                <div className="space-y-3">
+                            {loadingUsers ? <div className="flex py-10 justify-center"><Loader2 className="animate-spin h-8 w-8 text-blue-600" /></div> : (
+                                <div className="grid grid-cols-1 gap-3">
                                     {users.map(user => (
-                                        <div key={user.id} className="flex items-center justify-between p-3 border rounded-lg bg-slate-50">
-                                            <div>
-                                                <p className="font-semibold text-slate-800">{user.email}</p>
-                                                <p className="text-xs text-slate-500 font-mono">{user.id}</p>
+                                        <div key={user.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border rounded-xl bg-slate-50 gap-4">
+                                            <div className="space-y-1">
+                                                <p className="font-bold text-slate-800">{user.email}</p>
+                                                <p className="text-[10px] text-slate-400 font-mono tracking-tighter uppercase whitespace-nowrap overflow-hidden text-ellipsis max-w-[200px]">{user.id}</p>
                                             </div>
-                                            <div className="flex items-center gap-3">
+                                            <div className="flex flex-wrap items-center gap-2">
                                                 <select
-                                                    className="p-1.5 border rounded text-sm bg-white"
+                                                    className="flex-1 sm:flex-none p-2 border border-slate-200 rounded-lg text-xs font-bold bg-white"
                                                     value={user.role || 'viewer'}
                                                     onChange={(e) => handleUserUpdate(user.id, 'role', e.target.value)}
                                                 >
@@ -324,25 +324,25 @@ export default function Settings() {
                                                     <option value="admin">Admin</option>
                                                 </select>
                                                 <select
-                                                    className="p-1.5 border rounded text-sm bg-white w-32"
+                                                    className="flex-1 sm:flex-none p-2 border border-slate-200 rounded-lg text-xs font-bold bg-white"
                                                     value={user.location || ''}
                                                     onChange={(e) => handleUserUpdate(user.id, 'location', e.target.value)}
                                                 >
-                                                    <option value="">All Locations</option>
+                                                    <option value="">All Locs</option>
                                                     {(formData.locations || []).map(l => (
                                                         <option key={l.name} value={l.name}>{l.name}</option>
                                                     ))}
                                                 </select>
                                                 <button
                                                     onClick={() => handleUserUpdate(user.id, 'active', !user.active)}
-                                                    className={`px-3 py-1.5 text-xs font-bold rounded ${user.active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}
+                                                    className={`px-3 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg border ${user.active ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'}`}
                                                 >
                                                     {user.active ? 'Active' : 'Inactive'}
                                                 </button>
                                             </div>
                                         </div>
                                     ))}
-                                    {users.length === 0 && <p className="text-slate-500 italic">No users found.</p>}
+                                    {users.length === 0 && <p className="text-slate-500 italic text-center py-10">No users found.</p>}
                                 </div>
                             )}
                         </div>

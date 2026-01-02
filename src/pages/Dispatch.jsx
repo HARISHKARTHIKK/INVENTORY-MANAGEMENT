@@ -112,7 +112,8 @@ export default function Dispatch() {
                     </div>
                 </div>
 
-                <div className="overflow-x-auto">
+                {/* Desktop Table */}
+                <div className="hidden lg:block overflow-x-auto">
                     <table className="w-full text-left text-sm text-slate-600">
                         <thead className="bg-slate-50 text-slate-700 font-semibold uppercase text-xs tracking-wider">
                             <tr>
@@ -157,15 +158,40 @@ export default function Dispatch() {
                                     </td>
                                 </tr>
                             ))}
-                            {filteredDispatches.length === 0 && (
-                                <tr>
-                                    <td colSpan="6" className="px-6 py-12 text-center text-slate-400">
-                                        No dispatches found matching your filters.
-                                    </td>
-                                </tr>
-                            )}
                         </tbody>
                     </table>
+                </div>
+
+                {/* Mobile Cards */}
+                <div className="lg:hidden divide-y divide-slate-100">
+                    {filteredDispatches.map((disp) => (
+                        <div key={disp.id} className="p-4 bg-white flex flex-col gap-3">
+                            <div className="flex justify-between items-start">
+                                <div className="space-y-1">
+                                    <div className="font-mono font-bold text-slate-900">{disp.invoiceNo}</div>
+                                    <div className="text-[10px] text-slate-500 uppercase tracking-tight">
+                                        {disp.createdAt?.seconds ? format(new Date(disp.createdAt.seconds * 1000), 'dd MMM yyyy, h:mm a') : '-'}
+                                    </div>
+                                </div>
+                                <div className="text-right">
+                                    <div className="text-sm font-black text-indigo-600">{(Number(disp.quantity) || 0).toFixed(1)} mts</div>
+                                    <span className="flex items-center gap-1 text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded uppercase mt-1">
+                                        <MapPin className="h-2 w-2" /> {disp.location}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div className="flex justify-between items-end pt-2 border-t border-slate-50">
+                                <div className="font-medium text-slate-800 text-sm">{disp.productName}</div>
+                                <div className="text-right">
+                                    <div className="text-[10px] font-bold text-slate-400 uppercase leading-none mb-1">Vehicle</div>
+                                    <div className="text-xs font-semibold text-slate-600 bg-slate-50 px-2 py-1 rounded border border-slate-100">
+                                        {disp.transport?.vehicleNumber || 'N/A'}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
                 </div>
             </div>
         </div>

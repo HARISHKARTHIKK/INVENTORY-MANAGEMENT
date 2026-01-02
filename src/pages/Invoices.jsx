@@ -29,7 +29,6 @@ export default function Invoices() {
 
     // Real-time invoices fetch
     useEffect(() => {
-        // Query limited to 100 recent items for performance
         const q = query(collection(db, 'invoices'), orderBy('createdAt', 'desc'), limit(100));
 
         try {
@@ -167,7 +166,7 @@ export default function Invoices() {
                     </div>
                 </div>
 
-                <div className="overflow-x-auto">
+                <div className="hidden sm:block overflow-x-auto">
                     <table className="w-full text-left text-sm text-slate-600">
                         <thead className="bg-slate-50 text-slate-700 font-semibold uppercase text-xs tracking-wider">
                             <tr>
@@ -175,6 +174,7 @@ export default function Invoices() {
                                 <th className="px-6 py-4">Date</th>
                                 <th className="px-6 py-4">Customer</th>
                                 <th className="px-6 py-4">Origin</th>
+                                <th className="px-6 py-4 text-right">Basic</th>
                                 <th className="px-6 py-4 text-right">Amount</th>
                                 <th className="px-6 py-4 text-center">Status</th>
                                 <th className="px-6 py-4 text-right">Action</th>
@@ -195,8 +195,11 @@ export default function Invoices() {
                                             <MapPin className="h-3 w-3" /> {inv.fromLocation || '-'}
                                         </span>
                                     </td>
-                                    <td className="px-6 py-4 text-right font-bold text-slate-800">
-                                        ₹ {(Number(inv.totalAmount) || 0).toFixed(1)}
+                                    <td className="px-6 py-4 text-right font-medium text-slate-600">
+                                        ₹ {(Number(inv.subtotal) || 0).toFixed(0)}
+                                    </td>
+                                    <td className="px-6 py-4 text-right font-black text-slate-900 border-l border-slate-50">
+                                        ₹ {(Number(inv.totalAmount) || 0).toFixed(0)}
                                     </td>
                                     <td className="px-6 py-4 text-center">
                                         <span className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-semibold">Paid</span>
@@ -222,6 +225,43 @@ export default function Invoices() {
                         </tbody>
                     </table>
                 </div>
+
+                <div className="sm:hidden grid grid-cols-1 divide-y divide-slate-100">
+                    {filteredInvoices.map((inv) => (
+                        <div
+                            key={inv.id}
+                            onClick={() => setSelectedInvoice(inv)}
+                            className="p-4 bg-white active:bg-slate-50 transition-colors flex flex-col gap-3"
+                        >
+                            <div className="flex justify-between items-start">
+                                <div className="space-y-1">
+                                    <span className="font-mono font-bold text-slate-900">{inv.invoiceNo}</span>
+                                    <p className="text-[11px] text-slate-500">
+                                        {inv.createdAt?.seconds ? format(new Date(inv.createdAt.seconds * 1000), 'dd MMM yyyy') : '-'}
+                                    </p>
+                                </div>
+                                <div className="text-right">
+                                    <div className="text-sm font-black text-blue-600">₹{(Number(inv.totalAmount) || 0).toFixed(0)}</div>
+                                    <div className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">Basic: ₹{(Number(inv.subtotal) || 0).toFixed(0)}</div>
+                                </div>
+                            </div>
+
+                            <div className="flex justify-between items-center">
+                                <div className="text-sm font-medium text-slate-700 truncate max-w-[180px]">
+                                    {inv.customerName}
+                                </div>
+                                <span className="flex items-center gap-1 text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded uppercase tracking-tighter">
+                                    <MapPin className="h-3 w-3" /> {inv.fromLocation || '-'}
+                                </span>
+                            </div>
+                        </div>
+                    ))}
+                    {filteredInvoices.length === 0 && (
+                        <div className="p-8 text-center text-slate-400 text-sm">
+                            No invoices found.
+                        </div>
+                    )}
+                </div>
             </div>
 
             {selectedInvoice && (
@@ -237,24 +277,21 @@ function CreateInvoice({ onCancel, onSuccess }) {
     const [customers, setCustomers] = useState([]);
     const [products, setProducts] = useState([]);
     const [selectedCustomer, setSelectedCustomer] = useState('');
-    const [fromLocation, setFromLocation] = useState(userData?.location || '');
+    const [fromLocation, setFromLocation] = useState(userData?.location || 'CHENNAI');
     const [invoiceNo, setInvoiceNo] = useState('');
     const [lines, setLines] = useState([]);
+    const [remarks, setRemarks] = useState('');
     const [submitting, setSubmitting] = useState(false);
 
-    // Dynamic Locations from Settings (or fallback)
-    // We also explicitly include the user's assigned location in case settings are loading or it's missing from the active list
     const baseLocations = settings?.locations?.filter(l => l.active).map(l => l.name) || ['Warehouse A', 'Warehouse B', 'Store Front', 'Factory'];
     const LOCATIONS = [...new Set([...baseLocations, userData?.location].filter(Boolean))];
 
-    // Set default location from user profile if available
     useEffect(() => {
         if (!fromLocation && userData?.location) {
             setFromLocation(userData.location);
         }
     }, [userData]);
 
-    // Auto-generate Invoice Number when Location Changes
     useEffect(() => {
         if (fromLocation && settings?.locations) {
             const loc = settings.locations.find(l => l.name === fromLocation);
@@ -262,10 +299,6 @@ function CreateInvoice({ onCancel, onSuccess }) {
                 const prefix = loc.prefix || 'INV';
                 const num = loc.nextNumber || 1;
                 const newNo = `${prefix}-${num}`;
-
-                // Force update if in auto mode OR if current invoiceNo is empty 
-                // OR if it currently looks like an auto-generated number (ends with its sequence)
-                // This allows the prefix to change when the user switches locations.
                 if (!settings.invoice?.manualNo || !invoiceNo || invoiceNo.includes('-')) {
                     setInvoiceNo(newNo);
                 }
@@ -273,15 +306,13 @@ function CreateInvoice({ onCancel, onSuccess }) {
         }
     }, [fromLocation, settings]);
 
-    // Transport Data
     const [transport, setTransport] = useState({
         vehicleNumber: '',
         amount: 0,
-        mode: '',
+        mode: 'By Road',
         isExtra: false
     });
 
-    // Real-time data for dropdowns (ensures stock is always up-to-date)
     useEffect(() => {
         const qCustomers = query(collection(db, 'customers'), orderBy('name'));
         const qProducts = query(collection(db, 'products'), orderBy('name'));
@@ -300,14 +331,13 @@ function CreateInvoice({ onCancel, onSuccess }) {
         };
     }, []);
 
-    // Helper to get total stock across all locations (as per user requirement to take from total)
     const getStockAtLocation = (product) => {
         if (!product) return 0;
         return Object.values(product.locations || {}).reduce((a, b) => a + (Number(b) || 0), 0);
     };
 
     const addLine = () => {
-        setLines([...lines, { productId: '', qty: '1', price: '0', stock: 0 }]);
+        setLines([...lines, { productId: '', qty: '0', price: '0', stock: 0, bags: '', bagWeight: '' }]);
     };
 
     const updateLine = (index, field, value) => {
@@ -315,10 +345,8 @@ function CreateInvoice({ onCancel, onSuccess }) {
         const updatedLine = { ...newLines[index] };
 
         let processedValue = value;
-        if (field === 'qty' || field === 'price') {
-            // Replace commas with dots
+        if (field === 'qty' || field === 'price' || field === 'bags' || field === 'bagWeight') {
             processedValue = String(value).replace(/,/g, '.');
-            // Allow only numbers and a single decimal point
             processedValue = processedValue.replace(/[^0-9.]/g, '');
             const dots = (processedValue.match(/\./g) || []).length;
             if (dots > 1) {
@@ -332,28 +360,25 @@ function CreateInvoice({ onCancel, onSuccess }) {
             updatedLine.productId = String(value);
             updatedLine.name = prod?.name || '';
             updatedLine.price = String(prod?.price || '0');
-            updatedLine.qty = String(updatedLine.qty || '1');
-            updatedLine.stock = Number(getStockAtLocation(prod, fromLocation));
+            updatedLine.qty = String(updatedLine.qty || '0');
+            updatedLine.stock = Number(getStockAtLocation(prod));
+            updatedLine.bags = '';
+            updatedLine.bagWeight = '';
         } else {
             updatedLine[field] = processedValue;
+        }
+
+        if (field === 'bags' || field === 'bagWeight') {
+            const bagsCount = Number(updatedLine.bags) || 0;
+            const weightPerBag = Number(updatedLine.bagWeight) || 0;
+            if (bagsCount > 0 && weightPerBag > 0) {
+                updatedLine.qty = String((bagsCount * weightPerBag) / 1000);
+            }
         }
 
         newLines[index] = updatedLine;
         setLines(newLines);
     };
-
-    // Update stocks when location changes
-    useEffect(() => {
-        if (fromLocation) {
-            setLines(prevLines => prevLines.map(line => {
-                const prod = products.find(p => p.id === line.productId);
-                return {
-                    ...line,
-                    stock: getStockAtLocation(prod, fromLocation)
-                };
-            }));
-        }
-    }, [fromLocation, products]);
 
     const removeLine = (index) => {
         setLines(lines.filter((_, i) => i !== index));
@@ -366,73 +391,38 @@ function CreateInvoice({ onCancel, onSuccess }) {
             return acc + (qty * price);
         }, 0);
 
-        // Tax Calculation based on Settings
-        // Rule: Transport is NEVER taxed.
-        const taxRate = settings?.invoice?.tax ?? 18; // Default 18%
+        const taxRate = settings?.invoice?.tax ?? 18;
         const tax = linesTotal * (taxRate / 100);
-
         const transportAmt = Number(transport.amount) || 0;
-
         let total = linesTotal + tax;
-
         if (transport.isExtra) {
             total += transportAmt;
         }
-
-        // Round Off
         if (settings?.invoice?.roundOff) {
             total = Math.round(total);
         }
-
-        const taxableValue = linesTotal; // Strictly product value
-
+        const taxableValue = linesTotal;
         return { linesTotal, tax, total, taxableValue };
     };
 
     const handleSubmit = async () => {
-        // 0. Filter out empty items
         const validLines = lines.filter(l => l.productId && l.qty && parseFloat(String(l.qty).replace(/,/g, '.')) > 0);
 
-        // 1. Basic Required Field Check
         if (!invoiceNo || !selectedCustomer || !fromLocation || validLines.length === 0) {
             alert("Please provide Invoice Number, Customer, Dispatch Location, and at least one valid Item.");
             return;
         }
 
-        // 2. Empty Check & Numeric Validation at point of submission
         for (const line of validLines) {
-            if (!line.productId) {
-                alert("Please select a product for all items.");
-                return;
-            }
-
-            // Requirement 2: Empty Value Handling
-            if (line.qty === '' || line.qty === null || line.qty === undefined) {
-                alert(`Quantity is required for product: ${line.name || 'Selected Item'}`);
-                return;
-            }
-
-            // Format check & explicit casting for validation
             const qtyVal = Number(String(line.qty).replace(/,/g, '.'));
             if (isNaN(qtyVal) || qtyVal <= 0) {
                 alert(`Please enter a valid quantity greater than 0 for ${line.name || 'Selected Item'}`);
                 return;
             }
-        }
-
-        // Validate stock against global stockQty
-        for (const line of validLines) {
             const prod = products.find(p => p.id === line.productId);
-            if (!prod) {
-                alert(`Product not found for item: ${line.name}`);
-                return;
-            }
             const globalStock = getStockAtLocation(prod);
-            // Requirement 1: Explicit cast using parseFloat
-            const requestedQuantity = parseFloat(String(line.qty).replace(/,/g, '.')) || 0;
-
-            if (globalStock < requestedQuantity) {
-                alert(`Insufficient global stock for ${line.name}. Available: ${globalStock.toFixed(1)}, Requested: ${requestedQuantity.toFixed(1)}`);
+            if (globalStock < qtyVal) {
+                alert(`Insufficient global stock for ${line.name}. Available: ${globalStock.toFixed(1)}, Requested: ${qtyVal.toFixed(1)}`);
                 return;
             }
         }
@@ -442,10 +432,11 @@ function CreateInvoice({ onCancel, onSuccess }) {
             const { linesTotal, tax, total, taxableValue } = calculateTotals();
             const customerObj = customers.find(c => c.id === selectedCustomer);
 
-            // Requirement 2 & 3: Sanitize and explicitly cast using Number() for Firestore
             const preparedItems = validLines.map(l => ({
                 ...l,
                 quantity: Number(String(l.qty).replace(/[^0-9.]/g, '')),
+                bags: Number(l.bags) || 0,
+                bagWeight: Number(l.bagWeight) || 0,
                 price: Number(String(l.price).replace(/[^0-9.]/g, '')) || 0
             }));
 
@@ -457,6 +448,8 @@ function CreateInvoice({ onCancel, onSuccess }) {
                 taxAmount: Number(tax) || 0,
                 totalAmount: Number(total) || 0,
                 taxableValue: Number(taxableValue) || 0,
+                taxRate: settings?.invoice?.tax ?? 18,
+                remarks: remarks,
                 transport: {
                     vehicleNumber: transport.vehicleNumber,
                     amount: Number(transport.amount) || 0,
@@ -466,7 +459,6 @@ function CreateInvoice({ onCancel, onSuccess }) {
                 status: 'paid'
             }, preparedItems, fromLocation);
 
-            // Increment Invoice Counter
             if (settings?.locations) {
                 const locIndex = settings.locations.findIndex(l => l.name === fromLocation);
                 if (locIndex >= 0) {
@@ -488,232 +480,299 @@ function CreateInvoice({ onCancel, onSuccess }) {
     const { linesTotal, tax, total } = calculateTotals();
 
     return (
-        <div className="space-y-6 animate-fade-in-up">
-            <div className="flex items-center gap-4">
-                <button onClick={onCancel} className="p-2 hover:bg-slate-100 rounded-full text-slate-500">
-                    <ArrowLeft className="h-6 w-6" />
-                </button>
-                <h2 className="text-2xl font-bold text-slate-800">New Invoice</h2>
+        <div className="max-w-[1600px] mx-auto space-y-3 animate-fade-in-up pb-20">
+            {/* Header / Navigation */}
+            <div className="flex items-center justify-between bg-white p-3 rounded-xl shadow-sm border border-slate-200">
+                <div className="flex items-center gap-3">
+                    <button onClick={onCancel} className="p-1.5 hover:bg-slate-100 rounded-full text-slate-500 transition-colors">
+                        <ArrowLeft className="h-5 w-5" />
+                    </button>
+                    <div>
+                        <h2 className="text-xl font-black text-slate-900 leading-tight">Create Invoice</h2>
+                    </div>
+                </div>
+                <div className="flex items-center gap-6">
+                    <div className="text-right">
+                        <label className="block text-[9px] font-black text-slate-400 uppercase mb-0.5">Invoice Number</label>
+                        <input
+                            type="text"
+                            className="bg-slate-50 border-none rounded-lg px-3 py-1.5 text-right font-mono font-bold text-base text-blue-600 focus:ring-2 focus:ring-blue-500 outline-none w-28"
+                            value={invoiceNo}
+                            onChange={(e) => setInvoiceNo(e.target.value)}
+                        />
+                    </div>
+                </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2 space-y-6">
-                    <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-                        <div className="flex justify-between items-center mb-4">
-                            <h3 className="font-semibold text-slate-700">Items</h3>
-                            <button onClick={addLine} className="text-sm text-blue-600 font-medium flex items-center gap-1 hover:underline">
-                                <Plus className="h-4 w-4" /> Add Item
+            {/* Primary Details Bar - Lighter Professional Style */}
+            <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
+                <div className="space-y-1.5 p-1">
+                    <label className="text-slate-400 text-[11px] font-black uppercase tracking-widest flex items-center gap-2">
+                        <User className="h-3 w-3 text-blue-500" /> Select Customer
+                    </label>
+                    <div className="relative">
+                        <select
+                            className="w-full bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl px-4 py-2.5 text-slate-900 font-bold text-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all appearance-none cursor-pointer"
+                            value={selectedCustomer}
+                            onChange={(e) => setSelectedCustomer(e.target.value)}
+                        >
+                            <option value="" className="text-slate-900">Choose Customer...</option>
+                            {customers.map(c => (
+                                <option key={c.id} value={c.id} className="text-slate-900">{c.name}</option>
+                            ))}
+                        </select>
+                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-40">
+                            <Plus className="h-4 w-4 rotate-45" />
+                        </div>
+                    </div>
+                </div>
+                <div className="space-y-1.5 p-1">
+                    <label className="text-slate-400 text-[11px] font-black uppercase tracking-widest flex items-center gap-2">
+                        <MapPin className="h-3 w-3 text-blue-500" /> Dispatch Location
+                    </label>
+                    <div className="relative">
+                        <select
+                            className="w-full bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl px-4 py-2.5 text-slate-900 font-bold text-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all appearance-none cursor-pointer"
+                            value={fromLocation}
+                            onChange={(e) => setFromLocation(e.target.value)}
+                        >
+                            <option value="" className="text-slate-900">Select Warehouse...</option>
+                            {LOCATIONS.map(loc => (
+                                <option key={loc} value={loc} className="text-slate-900">{loc}</option>
+                            ))}
+                        </select>
+                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-40">
+                            <Plus className="h-4 w-4 rotate-45" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 items-start">
+                <div className="lg:col-span-3 space-y-3">
+                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                        <div className="p-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
+                            <h3 className="font-black text-slate-800 uppercase tracking-wider text-sm">Line Items</h3>
+                            <button onClick={addLine} className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-2 shadow-lg shadow-blue-200 transition-all active:scale-95">
+                                <Plus className="h-3.5 w-3.5" /> Add Item
                             </button>
                         </div>
-                        <div className="space-y-3">
-                            {lines.map((line, idx) => (
-                                <div key={idx} className="flex gap-3 items-start">
-                                    <div className="flex-1">
+                        <div className="p-0 overflow-x-auto">
+                            <table className="w-full">
+                                <thead className="bg-slate-50/50 text-[11px] font-black uppercase text-slate-400 border-b">
+                                    <tr>
+                                        <th className="px-4 py-3 text-left">Product Selection</th>
+                                        <th className="px-2 py-3 text-center w-24">Bags</th>
+                                        <th className="px-2 py-3 text-center w-24">Wt (kg)</th>
+                                        <th className="px-2 py-3 text-center w-32" title="Quantity in MTS">Quantity</th>
+                                        <th className="px-2 py-3 text-center w-32">Rate (₹)</th>
+                                        <th className="px-4 py-3 text-right w-36">Line Total</th>
+                                        <th className="px-4 py-3 w-16"></th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                    {lines.map((line, idx) => (
+                                        <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
+                                            <td className="px-4 py-2.5">
+                                                <select
+                                                    className="w-full bg-slate-100/50 border-none rounded-lg px-2.5 py-2 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none"
+                                                    value={line.productId}
+                                                    onChange={(e) => updateLine(idx, 'productId', e.target.value)}
+                                                    disabled={!fromLocation}
+                                                >
+                                                    <option value="">{fromLocation ? 'Select Product' : 'Select Location'}</option>
+                                                    {products.map(p => {
+                                                        const totalStock = Object.values(p.locations || {}).reduce((a, b) => a + (Number(b) || 0), 0);
+                                                        return (
+                                                            <option key={p.id} value={String(p.id)}>
+                                                                {p.name} ({totalStock.toFixed(1)} mts)
+                                                            </option>
+                                                        );
+                                                    })}
+                                                </select>
+                                            </td>
+                                            <td className="px-2 py-2.5">
+                                                <input
+                                                    type="text"
+                                                    className="w-full bg-slate-100/50 border-none rounded-lg px-2 py-2 text-center text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none"
+                                                    placeholder="0"
+                                                    value={line.bags}
+                                                    onChange={(e) => updateLine(idx, 'bags', e.target.value)}
+                                                />
+                                            </td>
+                                            <td className="px-2 py-2.5">
+                                                <input
+                                                    type="text"
+                                                    className="w-full bg-slate-100/50 border-none rounded-lg px-2 py-2 text-center text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none"
+                                                    placeholder="50"
+                                                    value={line.bagWeight}
+                                                    onChange={(e) => updateLine(idx, 'bagWeight', e.target.value)}
+                                                />
+                                            </td>
+                                            <td className="px-2 py-2.5">
+                                                <div className="relative">
+                                                    <input
+                                                        type="text"
+                                                        className="w-full bg-slate-100/50 border-none rounded-lg pl-2 pr-8 py-2 text-center text-sm font-black text-indigo-600 focus:ring-2 focus:ring-indigo-500 outline-none"
+                                                        value={line.qty}
+                                                        onChange={(e) => updateLine(idx, 'qty', e.target.value)}
+                                                    />
+                                                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-black text-slate-400">MTS</span>
+                                                </div>
+                                            </td>
+                                            <td className="px-2 py-2.5">
+                                                <input
+                                                    type="text"
+                                                    className="w-full bg-slate-100/50 border-none rounded-lg px-2 py-2 text-center text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none"
+                                                    placeholder="0"
+                                                    value={line.price}
+                                                    onChange={(e) => updateLine(idx, 'price', e.target.value)}
+                                                />
+                                            </td>
+                                            <td className="px-4 py-2.5 text-right">
+                                                <span className="text-sm font-black text-slate-900 uppercase">
+                                                    ₹ {(Number(String(line.qty || 0).replace(/[^0-9.]/g, '')) * Number(String(line.price || 0).replace(/[^0-9.]/g, ''))).toLocaleString('en-IN', { minimumFractionDigits: 1 })}
+                                                </span>
+                                            </td>
+                                            <td className="px-4 py-2.5 text-right">
+                                                <button onClick={() => removeLine(idx)} className="p-1.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all">
+                                                    <Trash2 className="h-3.5 w-3.5" />
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    {lines.length === 0 && (
+                                        <tr>
+                                            <td colSpan="7" className="px-6 py-20 text-center text-slate-400 font-bold">No items listed. Start adding products.</td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="h-6 w-1 bg-blue-600 rounded-full"></div>
+                            <h3 className="font-black text-slate-800 uppercase tracking-widest text-xs">Transportation & Notes</h3>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div className="space-y-3">
+                                <div>
+                                    <label className="block text-[9px] font-black text-slate-400 uppercase mb-1.5">Vehicle / Truck Number</label>
+                                    <input
+                                        className="w-full bg-slate-50 border-slate-200 rounded-xl px-3 py-2 text-xs font-bold focus:ring-2 focus:ring-blue-500 outline-none uppercase font-mono"
+                                        placeholder="MH-XX-XX-XXXX"
+                                        value={transport.vehicleNumber}
+                                        onChange={e => setTransport({ ...transport, vehicleNumber: e.target.value.toUpperCase() })}
+                                    />
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="block text-[9px] font-black text-slate-400 uppercase mb-1.5">Cost (₹)</label>
+                                        <input
+                                            type="number"
+                                            className="w-full bg-slate-50 border-slate-200 rounded-xl px-3 py-2 text-xs font-bold focus:ring-2 focus:ring-blue-500 outline-none"
+                                            value={transport.amount}
+                                            onChange={e => setTransport({ ...transport, amount: e.target.value })}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-[9px] font-black text-slate-400 uppercase mb-1.5">Method</label>
                                         <select
-                                            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none"
-                                            value={line.productId}
-                                            onChange={(e) => updateLine(idx, 'productId', e.target.value)}
-                                            disabled={!fromLocation}
+                                            className="w-full bg-slate-50 border-slate-200 rounded-xl px-3 py-2 text-xs font-bold focus:ring-2 focus:ring-blue-500 outline-none"
+                                            value={transport.mode}
+                                            onChange={e => setTransport({ ...transport, mode: e.target.value })}
                                         >
-                                            <option value="">{fromLocation ? 'Select Product' : 'Select Location First'}</option>
-                                            {products.map(p => {
-                                                const totalStock = Object.values(p.locations || {}).reduce((a, b) => a + (Number(b) || 0), 0);
-                                                return (
-                                                    <option key={p.id} value={String(p.id)}>
-                                                        {p.name} (Total Stock: {totalStock.toFixed(1)})
-                                                    </option>
-                                                );
-                                            })}
+                                            <option value="">N/A</option>
+                                            {(settings?.transport?.modes || ['By Road', 'By Sea', 'By Air']).map(m => (
+                                                <option key={m} value={m}>{m}</option>
+                                            ))}
                                         </select>
                                     </div>
-                                    <div className="w-24 relative">
-                                        <input
-                                            type="number"
-                                            min="0.001"
-                                            step="0.001"
-                                            className="w-full pl-3 pr-8 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                                            placeholder="0.000"
-                                            value={line.qty}
-                                            onChange={(e) => updateLine(idx, 'qty', e.target.value)}
-                                        />
-                                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-500 font-bold pointer-events-none bg-slate-100 px-1 rounded border border-slate-200">MTS</span>
-                                    </div>
-                                    <div className="w-32 relative">
-                                        <input
-                                            type="number"
-                                            className="w-full pl-6 pr-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                                            placeholder="Price"
-                                            value={line.price}
-                                            onChange={(e) => updateLine(idx, 'price', e.target.value)}
-                                        />
-                                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-500 font-serif pointer-events-none">₹</span>
-                                        <div className="absolute right-1 top-full text-[10px] text-slate-400">Rate/Unit</div>
-                                    </div>
-                                    <div className="w-24 text-right py-2 text-sm font-medium text-slate-700">
-                                        ₹{(Number(String(line.qty || 0).replace(/,/g, '.')) * Number(String(line.price || 0).replace(/,/g, '.'))).toFixed(1)}
-                                    </div>
-                                    <button onClick={() => removeLine(idx)} className="p-2 text-red-400 hover:text-red-600">
-                                        <Trash2 className="h-4 w-4" />
-                                    </button>
                                 </div>
-                            ))}
-                            {lines.length === 0 && <div className="text-center py-6 text-slate-400 text-sm">No items added. Click "Add Item" to start.</div>}
+                            </div>
+                            <div className="space-y-3">
+                                <label className="block text-[9px] font-black text-slate-400 uppercase mb-1.5">Pricing Logic</label>
+                                <div className="space-y-2">
+                                    <label className={`flex items-center gap-2.5 p-3 rounded-xl border-2 transition-all cursor-pointer ${!transport.isExtra ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-slate-50 border-transparent text-slate-500'}`}>
+                                        <input type="radio" name="transportType" checked={!transport.isExtra} onChange={() => setTransport({ ...transport, isExtra: false })} className="hidden" />
+                                        <div className={`h-3.5 w-3.5 rounded-full border-2 flex items-center justify-center ${!transport.isExtra ? 'border-blue-600' : 'border-slate-300'}`}>
+                                            {!transport.isExtra && <div className="h-1.5 w-1.5 bg-blue-600 rounded-full"></div>}
+                                        </div>
+                                        <span className="text-xs font-bold">Included in Rate</span>
+                                    </label>
+                                    <label className={`flex items-center gap-2.5 p-3 rounded-xl border-2 transition-all cursor-pointer ${transport.isExtra ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'bg-slate-50 border-transparent text-slate-500'}`}>
+                                        <input type="radio" name="transportType" checked={transport.isExtra} onChange={() => setTransport({ ...transport, isExtra: true })} className="hidden" />
+                                        <div className={`h-3.5 w-3.5 rounded-full border-2 flex items-center justify-center ${transport.isExtra ? 'border-indigo-600' : 'border-slate-300'}`}>
+                                            {transport.isExtra && <div className="h-1.5 w-1.5 bg-indigo-600 rounded-full"></div>}
+                                        </div>
+                                        <span className="text-xs font-bold">Charged Extra</span>
+                                    </label>
+                                </div>
+                            </div>
+                            <div className="space-y-3">
+                                <label className="block text-[11px] font-black text-slate-400 uppercase mb-1.5">Remarks / Internal Notes</label>
+                                <textarea
+                                    className="w-full bg-slate-50 border-slate-200 rounded-xl px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-blue-500 outline-none min-h-[100px] resize-none"
+                                    placeholder="Add notes about this dispatch..."
+                                    value={remarks}
+                                    onChange={(e) => setRemarks(e.target.value)}
+                                />
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <div className="space-y-6">
-                    {/* Customer & Location Section */}
-                    <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-4">
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-2">Invoice Number</label>
-                            <input
-                                type="text"
-                                className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 outline-none uppercase font-mono"
-                                placeholder="e.g. INV-001"
-                                value={invoiceNo}
-                                onChange={(e) => setInvoiceNo(e.target.value)}
-                            />
+                <div className="lg:col-span-1 space-y-4 lg:sticky lg:top-6">
+                    <div className="bg-white p-6 rounded-[2rem] shadow-lg border border-slate-200 relative overflow-hidden">
+                        <div className="absolute top-0 right-0 p-8 opacity-[0.03] pointer-events-none">
+                            <FileText className="h-24 w-24 rotate-12 text-slate-900" />
                         </div>
-
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-2">Customer</label>
-                            <select
-                                className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 outline-none"
-                                value={selectedCustomer}
-                                onChange={(e) => setSelectedCustomer(e.target.value)}
-                            >
-                                <option value="">Select Customer</option>
-                                {customers.map(c => (
-                                    <option key={c.id} value={c.id}>{c.name}</option>
-                                ))}
-                            </select>
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-2">Dispatch From (Location)</label>
-                            <select
-                                className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 outline-none"
-                                value={fromLocation}
-                                onChange={(e) => setFromLocation(e.target.value)}
-                            >
-                                <option value="">Select Location</option>
-                                {LOCATIONS.map(loc => (
-                                    <option key={loc} value={loc}>{loc}</option>
-                                ))}
-                            </select>
-                            {!fromLocation && <p className="text-xs text-amber-600 mt-1">Please select a location to check stock availability.</p>}
-                        </div>
-
-                        {selectedCustomer && (
-                            <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
-                                <p className="text-xs font-medium text-slate-500 uppercase mb-1">Billing To:</p>
-                                <p className="text-sm font-semibold text-slate-800">{customers.find(c => c.id === selectedCustomer)?.name}</p>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Transport Details Section */}
-                    <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-                        <h3 className="font-semibold text-slate-700 mb-4 flex items-center gap-2">
-                            Transport Details
-                        </h3>
-                        <div className="space-y-3">
-                            <div>
-                                <label className="block text-xs font-medium text-slate-500 mb-1">Vehicle Number</label>
-                                <input
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
-                                    placeholder="e.g. MH-12-AB-1234"
-                                    value={transport.vehicleNumber}
-                                    onChange={e => setTransport({ ...transport, vehicleNumber: e.target.value })}
-                                />
-                            </div>
-                            <div className="grid grid-cols-2 gap-3">
-                                <div>
-                                    <label className="block text-xs font-medium text-slate-500 mb-1">Transport Amount (₹)</label>
-                                    <input
-                                        type="number"
-                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
-                                        value={transport.amount}
-                                        onChange={e => setTransport({ ...transport, amount: e.target.value })}
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-medium text-slate-500 mb-1">Mode</label>
-                                    <select
-                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white"
-                                        value={transport.mode}
-                                        onChange={e => setTransport({ ...transport, mode: e.target.value })}
-                                    >
-                                        <option value="">Select Mode</option>
-                                        {(settings?.transport?.modes || ['By Road', 'By Sea', 'By Air']).map(m => (
-                                            <option key={m} value={m}>{m}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                            </div>
-                            <div className="pt-2">
-                                <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
-                                    <input
-                                        type="radio"
-                                        name="transportType"
-                                        checked={!transport.isExtra}
-                                        onChange={() => setTransport({ ...transport, isExtra: false })}
-                                        className="text-blue-600 focus:ring-blue-500"
-                                    />
-                                    Included in Product Rate
-                                </label>
-                                <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer mt-1">
-                                    <input
-                                        type="radio"
-                                        name="transportType"
-                                        checked={transport.isExtra}
-                                        onChange={() => setTransport({ ...transport, isExtra: true })}
-                                        className="text-blue-600 focus:ring-blue-500"
-                                    />
-                                    Charged Extra (Adds to Total + GST)
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Summary Section */}
-                    <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-                        <h3 className="font-semibold text-slate-700 mb-4">Summary</h3>
-                        <div className="space-y-2 text-sm">
-                            <div className="flex justify-between text-slate-600">
-                                <span>Note Subtotal</span>
-                                <span>₹ {linesTotal.toFixed(1)}</span>
+                        <h4 className="text-slate-400 text-[11px] font-black uppercase tracking-[0.2em] mb-8">Billing Summary</h4>
+                        <div className="space-y-6 relative z-10">
+                            <div className="flex justify-between items-end border-b border-slate-100 pb-4">
+                                <span className="text-slate-500 text-sm font-bold">Subtotal</span>
+                                <span className="text-xl font-bold text-slate-800 tracking-tighter">₹ {linesTotal.toFixed(1)}</span>
                             </div>
                             {transport.isExtra && (
-                                <div className="flex justify-between text-slate-600">
-                                    <span>Transport Costs</span>
-                                    <span>₹ {Number(transport.amount).toFixed(1)}</span>
+                                <div className="flex justify-between items-end border-b border-slate-100 pb-4">
+                                    <span className="text-slate-500 text-sm font-bold">Transport</span>
+                                    <span className="text-xl font-bold text-blue-600 tracking-tighter">+ ₹ {Number(transport.amount).toFixed(1)}</span>
                                 </div>
                             )}
-                            <div className="flex justify-between text-slate-600">
-                                <span>GST (18%)</span>
-                                <span>₹ {tax.toFixed(1)}</span>
+                            <div className="flex justify-between items-end border-b border-slate-100 pb-4">
+                                <span className="text-slate-500 text-sm font-bold">GST (18%)</span>
+                                <span className="text-xl font-bold text-amber-600 tracking-tighter">+ ₹ {tax.toFixed(1)}</span>
                             </div>
-                            {!transport.isExtra && Number(transport.amount) > 0 && (
-                                <div className="text-xs text-slate-400 italic mt-1 text-right">
-                                    * Transport (₹{Number(transport.amount).toFixed(1)}) included in rate
+                            <div className="pt-4 flex flex-col gap-2">
+                                <span className="text-slate-400 text-[10px] font-black uppercase tracking-widest text-center">Grand Total</span>
+                                <div className="text-5xl font-black text-center text-slate-900 tracking-tighter whitespace-nowrap">
+                                    <span className="text-blue-600 text-2xl mr-1">₹</span>
+                                    {total.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                                    <span className="text-slate-300 text-xl font-light">.{total.toFixed(1).split('.')[1]}</span>
                                 </div>
-                            )}
-                            <div className="pt-3 border-t border-slate-100 flex justify-between font-bold text-lg text-slate-800">
-                                <span>Total</span>
-                                <span>₹ {total.toFixed(1)}</span>
+                            </div>
+                            <button
+                                onClick={handleSubmit}
+                                disabled={submitting}
+                                className={`w-full mt-10 bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-2xl font-black text-lg shadow-xl shadow-blue-100 active:scale-[0.98] transition-all flex justify-center items-center gap-3 ${submitting ? 'opacity-70 cursor-not-allowed' : ''}`}
+                            >
+                                {submitting ? <Loader2 className="h-6 w-6 animate-spin" /> : <CheckCircle className="h-6 w-6" />}
+                                {submitting ? 'PROCESSING...' : 'FINAL DISPATCH'}
+                            </button>
+                            <p className="text-[10px] text-slate-400 text-center font-bold uppercase tracking-widest mt-4">Safe & Secure Entry</p>
+                        </div>
+                    </div>
+                    {!fromLocation && (
+                        <div className="bg-amber-50 border-2 border-amber-200 p-6 rounded-2xl flex items-start gap-4">
+                            <MapPin className="h-6 w-6 text-amber-500 shrink-0" />
+                            <div className="space-y-1">
+                                <p className="text-xs font-black text-amber-800 uppercase tracking-widest">Select Warehouse</p>
+                                <p className="text-[10px] text-amber-600 font-bold leading-relaxed">You must select a dispatch location before adding products to verify available stock levels.</p>
                             </div>
                         </div>
-                        <button
-                            onClick={handleSubmit}
-                            disabled={submitting}
-                            className={`w-full mt-6 bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-bold shadow-lg shadow-blue-500/20 active:scale-95 transition-all flex justify-center items-center gap-2 ${submitting ? 'opacity-70 cursor-not-allowed' : ''}`}
-                        >
-                            {submitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <CheckCircle className="h-5 w-5" />}
-                            {submitting ? 'Creating...' : 'Create Invoice'}
-                        </button>
-                    </div>
+                    )}
                 </div>
             </div>
         </div>
@@ -731,7 +790,6 @@ function InvoiceViewModal({ invoice, onClose }) {
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 print:p-0 print:bg-white print:fixed print:inset-0">
             <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh] print:max-w-none print:shadow-none print:max-h-none print:h-full print:rounded-none">
-                {/* Header Actions - Hidden in Print */}
                 <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50 print:hidden">
                     <h3 className="font-bold text-lg text-slate-800">Invoice Details</h3>
                     <div className="flex gap-2">
@@ -744,7 +802,6 @@ function InvoiceViewModal({ invoice, onClose }) {
                     </div>
                 </div>
 
-                {/* Printable Content */}
                 <div className="p-8 overflow-y-auto print:overflow-visible">
                     <div className="flex justify-between items-start mb-8">
                         <div>
@@ -764,7 +821,6 @@ function InvoiceViewModal({ invoice, onClose }) {
                     <div className="mb-8 p-4 bg-slate-50 rounded-lg print:border print:border-slate-200">
                         <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Bill To</h3>
                         <p className="font-bold text-slate-800 text-lg">{invoice.customerName}</p>
-                        {/* <p className="text-slate-600 text-sm">Customer Address...</p> */}
                     </div>
 
                     <table className="w-full text-left text-sm mb-8">
@@ -777,25 +833,10 @@ function InvoiceViewModal({ invoice, onClose }) {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                            {/* Items are currently not stored fully in the top invoice doc, usually just totals. 
-                                 Ideally we fetch items from subcollection. 
-                                 BUT for this simplified prompt, we might not have items data in the 'invoice' object from the list. 
-                                 We only have totals. 
-                                 Only create passes lines. The list view logic in Invoices.jsx (lines 33) doesn't fetch subcollections.
-                                 
-                                 Correction: For a View Modal to work perfectly we need the items.
-                                 However, I can't break existing logic. 
-                                 If the user wants PREVIEW, I can only show what I have. 
-                                 Currently Invoices list pulls `snapshot.docs.map...`. 
-                                 
-                                 Wait, the prompt asked to "Invoice preview... show Per-item rate".
-                                 I'll add a fetch for items when current invoice is selected.
-                             */}
                             <InvoiceItemsLoader invoiceId={invoice.id} />
                         </tbody>
                     </table>
 
-                    {/* Transport Section */}
                     {invoice.transport && (
                         <div className="mb-6 p-4 rounded border border-dashed border-slate-300">
                             <h4 className="font-bold text-sm text-slate-700 mb-2">Transport / Delivery</h4>
@@ -822,7 +863,7 @@ function InvoiceViewModal({ invoice, onClose }) {
                     <div className="flex justify-end">
                         <div className="w-64 space-y-2 text-sm text-right">
                             <div className="flex justify-between text-slate-600">
-                                <span>Subtotal</span>
+                                <span>Basic Amount</span>
                                 <span>₹ {Number(invoice.subtotal).toFixed(1)}</span>
                             </div>
                             {invoice.transport?.isExtra && (
@@ -850,21 +891,8 @@ function InvoiceViewModal({ invoice, onClose }) {
 function InvoiceItemsLoader({ invoiceId }) {
     const [items, setItems] = useState([]);
 
-    // We need to fetch items for this invoice
-    // Assuming a query can do this. 
-    // Usually items are in 'invoiceItems' collection with 'invoiceId' field based on createInvoice service.
-
     useEffect(() => {
         const fetchItems = async () => {
-            const q = query(collection(db, 'invoiceItems'), orderBy('createdAt'), limit(50));
-            // Wait, standard Firestore doesn't support easy "where invoiceId == X" without index if we sorting.
-            // We'll rely on a simple query.
-            // Actually, createInvoice adds to 'invoiceItems'.
-
-            // Let's use specific query
-            const qItems = query(collection(db, 'invoiceItems'));
-            // We can filter client side if necessary via the passed data or a where clause.
-            // Better:
             const finalQ = query(collection(db, 'invoiceItems'), where('invoiceId', '==', invoiceId));
             const snap = await getDocs(finalQ);
             setItems(snap.docs.map(d => ({ id: d.id, ...d.data() })));
@@ -877,52 +905,13 @@ function InvoiceItemsLoader({ invoiceId }) {
             {items.map((item, idx) => (
                 <tr key={idx}>
                     <td className="py-3 font-medium text-slate-800">
-                        {/* We might need to fetch product name if not stored. 
-                            CreateInvoice stores `productId`. 
-                            But wait! In `createInvoice` service I see:
-                            productId, quantity, price...
-                            It DOES NOT store name in invoiceItems usually.
-                            BUT I checked `services/firestoreService.js` earlier!
-                            
-                            Line 111: addDoc 'invoiceItems' { invoiceId, productId, quantity, price ... }
-                            It does NOT store name.
-                            However, the service file was modified in step 59 and I see:
-                            `productName: item.name || 'Unknown Product'` in `stockMovements`.
-                            But `invoiceItems` adding is:
-                             `await addDoc(collection(db, "invoiceItems"), { ... productId, quantity, price ... })`
-                            
-                            Ah, strictly speaking, I should have stored the name in invoiceItems to freeze it.
-                            But I can't change the backend schema heavily right now ("Preserve existing").
-                            I will try to find the name from the products list if possible or just show Product ID?
-                            
-                            Actually, `createInvoice` (in `Invoices.jsx`) passes `lines` which has `name`.
-                            But `createInvoice` (service) line 111 DOES NOT SAVE `name`.
-                            This is a gap in the existing backend.
-                            
-                            CRITICAL: The prompt says "DO NOT remove existing working logic".
-                            I should extend `createInvoice` service to save `name` inside `invoiceItems` if I can?
-                            "ONLY extend... functionality". Adding a field is safe.
-                            
-                            I will modify `createInvoice` service to store `name` in `invoiceItems`. 
-                            It is safer for the Invoice Preview to work efficiently.
-                            
-                            For now in this replacement, I will assume `item.name` exists or fallback to `Loading...` if I fetched it.
-                            Actually, I can fetch the product name from the main `products` collection if needed.
-                        */}
-                        {item.productName || item.name || <span>Product {item.productId?.slice(0, 5)}...</span>}
+                        {item.name || item.productId || 'Unknown Item'}
                     </td>
-                    <td className="py-3 text-right font-mono">
-                        <span className="text-[10px] text-slate-400 mr-1 uppercase">Qty</span>
-                        {Number(item.quantity).toFixed(3)}
-                    </td>
-                    <td className="py-3 text-right">
-                        <span className="text-[10px] text-slate-400 mr-1 uppercase">Rate</span>
-                        ₹ {Number(item.price).toLocaleString()}
-                    </td>
-                    <td className="py-3 text-right font-bold text-slate-700">₹ {(Number(item.quantity) * Number(item.price)).toLocaleString()}</td>
+                    <td className="py-3 text-right">{Number(item.quantity).toFixed(3)}</td>
+                    <td className="py-3 text-right">₹ {Number(item.price).toFixed(2)}</td>
+                    <td className="py-3 text-right">₹ {(Number(item.quantity) * Number(item.price)).toFixed(2)}</td>
                 </tr>
             ))}
         </>
     );
 }
-// End of file

@@ -14,6 +14,25 @@ import Settings from './pages/Settings';
 
 const ProtectedRoute = ({ children, allowedRoles }) => {
   const { currentUser, userRole, loading, logout } = useAuth();
+  return (
+    <LayoutWrapper
+      allowedRoles={allowedRoles}
+      userRole={userRole}
+      currentUser={currentUser}
+      loading={loading}
+      logout={logout}
+    >
+      {children}
+    </LayoutWrapper>
+  );
+};
+
+import { useState } from 'react';
+import { Menu, X } from 'lucide-react';
+
+function LayoutWrapper({ children, allowedRoles, userRole, currentUser, loading, logout }) {
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
   if (loading) return <div className="h-screen w-screen flex items-center justify-center">Loading...</div>;
   if (!currentUser) return <Navigate to="/login" />;
 
@@ -41,13 +60,50 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
     return <Navigate to="/" replace />;
   }
 
-  return <div className="flex h-screen bg-slate-50">
-    <Sidebar />
-    <main className="flex-1 overflow-y-auto p-8 ml-64">
-      {children}
-    </main>
-  </div>;
-};
+  return (
+    <div className="flex h-screen bg-slate-50 overflow-hidden relative">
+      {/* Sidebar - Desktop (Static) & Mobile (Overlay) */}
+      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
+        {/* Mobile Header - Visible only on small screens */}
+        <header className="lg:hidden flex items-center justify-between px-5 h-16 bg-slate-900 text-white shadow-xl z-20 flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+              <span className="text-white font-black text-xs">M</span>
+            </div>
+            <h1 className="text-lg font-bold tracking-tight text-white">
+              MAB <span className="text-blue-400">CHEM</span>
+            </h1>
+          </div>
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="p-2 -mr-1 text-slate-400 hover:text-white transition-colors active:bg-slate-800 rounded-lg"
+            aria-label="Open Menu"
+          >
+            <Menu className="h-6 w-6" />
+          </button>
+        </header>
+
+        {/* Content Scroll Area */}
+        <main className="flex-1 overflow-y-auto w-full bg-slate-50 scroll-smooth">
+          <div className="p-4 sm:p-6 lg:p-10 max-w-7xl mx-auto w-full">
+            {children}
+          </div>
+        </main>
+      </div>
+
+      {/* Mobile Sidebar Overlay/Backdrop */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-30 lg:hidden transition-opacity duration-300"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+    </div>
+  );
+}
 
 export default function App() {
   return (

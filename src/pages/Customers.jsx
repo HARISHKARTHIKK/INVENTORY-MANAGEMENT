@@ -121,7 +121,8 @@ export default function Customers() {
                     </div>
                 </div>
 
-                <div className="overflow-x-auto">
+                {/* Desktop Table */}
+                <div className="hidden sm:block overflow-x-auto">
                     <table className="w-full text-left text-sm text-slate-600">
                         <thead className="bg-slate-50 text-slate-700 font-semibold uppercase text-xs tracking-wider">
                             <tr>
@@ -176,14 +177,44 @@ export default function Customers() {
                             ))}
                         </tbody>
                     </table>
-                    {filteredCustomers.length === 0 && (
-                        <div className="p-12 text-center">
-                            <Users className="h-12 w-12 text-slate-300 mx-auto mb-3" />
-                            <h3 className="text-slate-900 font-medium">No customers found</h3>
-                            <p className="text-slate-500 text-sm mt-1">Add your first customer to get started.</p>
-                        </div>
-                    )}
                 </div>
+
+                {/* Mobile Cards */}
+                <div className="sm:hidden divide-y divide-slate-100">
+                    {filteredCustomers.map((customer) => (
+                        <div key={customer.id} className="p-4 bg-white flex flex-col gap-3">
+                            <div className="flex justify-between items-start">
+                                <div className="space-y-1">
+                                    <h4 className="font-bold text-slate-900 leading-tight">{customer.name}</h4>
+                                    <div className="text-[10px] font-mono text-slate-500 bg-slate-50 px-2 py-0.5 rounded border border-slate-100 w-fit uppercase tracking-wider">
+                                        GST: {customer.gstin || 'N/A'}
+                                    </div>
+                                </div>
+                                <div className="flex gap-2">
+                                    <button onClick={() => handleOpenModal(customer)} className="p-2 text-blue-600 bg-blue-50 rounded-lg active:scale-90 transition-transform"><Edit className="h-4 w-4" /></button>
+                                    <button onClick={() => handleDelete(customer.id)} className="p-2 text-red-500 bg-red-50 rounded-lg active:scale-90 transition-transform"><Trash2 className="h-4 w-4" /></button>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 text-xs">
+                                <div className="flex items-center gap-2 text-slate-600 bg-slate-50/50 p-1.5 rounded truncate"><Phone className="h-3 w-3 text-slate-400" /> {customer.phone || '-'}</div>
+                                <div className="flex items-center gap-2 text-slate-600 bg-slate-50/50 p-1.5 rounded truncate"><Mail className="h-3 w-3 text-slate-400" /> {customer.email || '-'}</div>
+                            </div>
+                            {customer.address && (
+                                <div className="text-[11px] text-slate-500 flex items-start gap-1.5 p-2 bg-slate-50 rounded border border-slate-100/50">
+                                    <MapPin className="h-3 w-3 mt-0.5 text-slate-400 flex-shrink-0" /> {customer.address}
+                                </div>
+                            )}
+                        </div>
+                    ))}
+                </div>
+
+                {filteredCustomers.length === 0 && (
+                    <div className="p-12 text-center bg-white">
+                        <Users className="h-12 w-12 text-slate-300 mx-auto mb-3" />
+                        <h3 className="text-slate-900 font-medium">No customers found</h3>
+                        <p className="text-slate-500 text-sm mt-1">Add your first customer to get started.</p>
+                    </div>
+                )}
             </div>
 
             {/* Modal */}
