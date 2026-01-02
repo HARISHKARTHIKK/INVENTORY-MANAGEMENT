@@ -442,11 +442,11 @@ function CreateInvoice({ onCancel, onSuccess }) {
             const { linesTotal, tax, total, taxableValue } = calculateTotals();
             const customerObj = customers.find(c => c.id === selectedCustomer);
 
-            // Requirement 1 & 2: Explicitly cast using parseFloat and handle empty items
+            // Requirement 2 & 3: Sanitize and explicitly cast using Number() for Firestore
             const preparedItems = validLines.map(l => ({
                 ...l,
-                quantity: parseFloat(String(l.qty).replace(/,/g, '.')) || 0,
-                price: parseFloat(String(l.price).replace(/,/g, '.')) || 0
+                quantity: Number(String(l.qty).replace(/[^0-9.]/g, '')),
+                price: Number(String(l.price).replace(/[^0-9.]/g, '')) || 0
             }));
 
             await createInvoice({

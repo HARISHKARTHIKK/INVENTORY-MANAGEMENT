@@ -112,11 +112,13 @@ export const createInvoice = async (invoice, items, fromLocation) => {
             if (!snap.exists()) throw new Error(`Product not found: ${item.name}`);
 
             const rawQty = item.quantity !== undefined ? item.quantity : item.qty;
-            let quantity = Number(rawQty);
+            // Prevent String Injection: Strip non-numeric characters (like 'mts' or spaces)
+            const sanitizedQty = String(rawQty).replace(/[^0-9.]/g, '');
+            let quantity = Number(sanitizedQty);
 
-            // Backend Safety: Force convert to number if type check fails
+            // Backend Safety: Force convert to number if type check fails or NaN occurs
             if (typeof quantity !== 'number' || isNaN(quantity)) {
-                quantity = Number(rawQty) || 0;
+                quantity = Number(sanitizedQty) || 0;
             }
 
             if (isNaN(quantity) || rawQty === '' || rawQty === null || rawQty === undefined) {
