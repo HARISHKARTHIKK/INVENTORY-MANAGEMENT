@@ -525,26 +525,6 @@ function CreateInvoice({ onCancel, onSuccess }) {
             <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
                 <div className="space-y-1.5 p-1">
                     <label className="text-slate-400 text-[11px] font-black uppercase tracking-widest flex items-center gap-2">
-                        <User className="h-3 w-3 text-blue-500" /> Select Customer
-                    </label>
-                    <div className="relative">
-                        <select
-                            className="w-full bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl px-4 py-2.5 text-slate-900 font-bold text-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all appearance-none cursor-pointer"
-                            value={selectedCustomer}
-                            onChange={(e) => setSelectedCustomer(e.target.value)}
-                        >
-                            <option value="" className="text-slate-900">Choose Customer...</option>
-                            {customers.map(c => (
-                                <option key={c.id} value={c.id} className="text-slate-900">{c.name}</option>
-                            ))}
-                        </select>
-                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-40">
-                            <Plus className="h-4 w-4 rotate-45" />
-                        </div>
-                    </div>
-                </div>
-                <div className="space-y-1.5 p-1">
-                    <label className="text-slate-400 text-[11px] font-black uppercase tracking-widest flex items-center gap-2">
                         <MapPin className="h-3 w-3 text-blue-500" /> Dispatch Location
                     </label>
                     <div className="relative">
@@ -556,6 +536,26 @@ function CreateInvoice({ onCancel, onSuccess }) {
                             <option value="" className="text-slate-900">Select Warehouse...</option>
                             {LOCATIONS.map(loc => (
                                 <option key={loc} value={loc} className="text-slate-900">{loc}</option>
+                            ))}
+                        </select>
+                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-40">
+                            <Plus className="h-4 w-4 rotate-45" />
+                        </div>
+                    </div>
+                </div>
+                <div className="space-y-1.5 p-1">
+                    <label className="text-slate-400 text-[11px] font-black uppercase tracking-widest flex items-center gap-2">
+                        <User className="h-3 w-3 text-blue-500" /> Select Customer
+                    </label>
+                    <div className="relative">
+                        <select
+                            className="w-full bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl px-4 py-2.5 text-slate-900 font-bold text-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all appearance-none cursor-pointer"
+                            value={selectedCustomer}
+                            onChange={(e) => setSelectedCustomer(e.target.value)}
+                        >
+                            <option value="" className="text-slate-900">Choose Customer...</option>
+                            {customers.map(c => (
+                                <option key={c.id} value={c.id} className="text-slate-900">{c.name}</option>
                             ))}
                         </select>
                         <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-40">
