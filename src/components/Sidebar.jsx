@@ -1,4 +1,4 @@
-import { LayoutDashboard, Package, ClipboardList, FileText, Users, BarChart3, Settings, Truck, LogOut, X } from 'lucide-react';
+import { LayoutDashboard, Package, ClipboardList, FileText, Users, BarChart3, Settings, Truck, LogOut, X, TrendingUp, CreditCard, Box } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { cn } from '../lib/utils';
 import { useAuth } from '../context/AuthContext';
@@ -8,8 +8,13 @@ const navigation = [
     { name: 'Dashboard', href: '/', icon: LayoutDashboard },
     { name: 'Inventory / Product', href: '/inventory', icon: ClipboardList },
     { name: 'Invoices', href: '/invoices', icon: FileText },
+    { name: 'Stock Management', href: '/stock-management', icon: Box },
     { name: 'Dispatch', href: '/dispatch', icon: Truck },
     { name: 'Customers', href: '/customers', icon: Users },
+    { name: 'Transporters', href: '/transporters', icon: Truck },
+    { name: 'Suppliers', href: '/suppliers', icon: Users },
+    { name: 'Logistics Reports', href: '/transporter-reports', icon: TrendingUp },
+    { name: 'Expenses', href: '/expenses', icon: CreditCard },
     { name: 'Reports', href: '/reports', icon: BarChart3 },
     { name: 'Settings', href: '/settings', icon: Settings },
 ];

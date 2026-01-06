@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Loader2, Plus, ArrowRight, Truck, MapPin, Package, AlertTriangle, Box, X } from 'lucide-react';
+import { Loader2, Plus, ArrowRight, Truck, MapPin, Package, AlertTriangle, Box, X, TrendingUp } from 'lucide-react';
 import { db } from '../lib/firebase';
 import { collection, onSnapshot, query, limit, orderBy } from 'firebase/firestore';
 import { format } from 'date-fns';
@@ -14,6 +14,7 @@ export default function Dashboard() {
     const [loading, setLoading] = useState(true);
     const [products, setProducts] = useState([]);
     const [dispatches, setDispatches] = useState([]);
+    const [recentInwards, setRecentInwards] = useState([]);
     const navigate = useNavigate();
 
     // Stock Update Modal State
@@ -27,6 +28,8 @@ export default function Dashboard() {
         const qProducts = query(collection(db, 'products'));
         // Recent Dispatches
         const qDispatches = query(collection(db, 'dispatches'), orderBy('createdAt', 'desc'), limit(10));
+        const qImports = query(collection(db, 'imports'), orderBy('createdAt', 'desc'), limit(10));
+        const qPurchases = query(collection(db, 'localPurchases'), orderBy('createdAt', 'desc'), limit(10));
 
         const unsubProducts = onSnapshot(qProducts, (snap) => {
             setProducts(snap.docs.map(d => ({ id: d.id, ...d.data() })));
@@ -34,12 +37,33 @@ export default function Dashboard() {
 
         const unsubDispatches = onSnapshot(qDispatches, (snap) => {
             setDispatches(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-            setLoading(false);
         });
+
+        const unsubImports = onSnapshot(qImports, (snap) => {
+            const importEntries = snap.docs.map(d => ({ id: d.id, type: 'IMPORT', ...d.data() }));
+            updateInwards(importEntries, 'imports');
+        });
+
+        const unsubPurchases = onSnapshot(qPurchases, (snap) => {
+            const purchaseEntries = snap.docs.map(d => ({ id: d.id, type: 'LOCAL', ...d.data() }));
+            updateInwards(purchaseEntries, 'purchases');
+        });
+
+        const inwardStore = { imports: [], purchases: [] };
+        const updateInwards = (data, category) => {
+            inwardStore[category] = data;
+            const combined = [...inwardStore.imports, ...inwardStore.purchases]
+                .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))
+                .slice(0, 10);
+            setRecentInwards(combined);
+            setLoading(false);
+        };
 
         return () => {
             unsubProducts();
             unsubDispatches();
+            unsubImports();
+            unsubPurchases();
         };
     }, []);
 
@@ -197,27 +221,27 @@ export default function Dashboard() {
                                         <td className="px-3 py-2 text-slate-900 font-bold truncate max-w-[150px] text-[14px]" title={d.customerName}>
                                             {d.customerName || '-'}
                                         </td>
-                                        <td className="px-3 py-2 font-bold text-slate-900 text-[14px] leading-tight truncate max-w-[120px]">{d.productName || 'Unknown'}</td>
-                                        <td className="px-3 py-2 text-[14px] text-slate-500 font-bold whitespace-nowrap">
+                                        <td className="px-3 py-2 text-slate-900 text-[14px] leading-tight truncate max-w-[120px]">{d.productName || 'Unknown'}</td>
+                                        <td className="px-3 py-2 text-[14px] text-slate-500 whitespace-nowrap">
                                             {d.bags ? `${d.bags} x ${d.bagWeight}kg` : '-'}
                                         </td>
 
-                                        <td className="px-3 py-2 text-right font-bold text-slate-800 text-[14px]">
+                                        <td className="px-3 py-2 text-right text-slate-800 text-[14px]">
                                             {(Number(d.quantity) || 0).toFixed(1)} <span className="text-[11px] text-slate-400 font-normal">mts</span>
                                         </td>
-                                        <td className="px-3 py-2 text-right text-slate-700 text-[14px] font-bold text-nowrap">
+                                        <td className="px-3 py-2 text-right text-slate-700 text-[14px] text-nowrap">
                                             ₹{((Number(d.quantity) || 0) * (Number(d.unitPrice) || 0)).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                                         </td>
-                                        <td className="px-3 py-2 text-right text-slate-500 text-[14px] font-medium text-nowrap">
+                                        <td className="px-3 py-2 text-right text-slate-500 text-[14px] text-nowrap">
                                             ₹{(Number(d.taxAmount) || 0).toFixed(0)}
                                         </td>
-                                        <td className="px-3 py-2 text-right font-black text-slate-900 text-[14px] text-nowrap">
+                                        <td className="px-3 py-2 text-right text-slate-900 text-[14px] text-nowrap">
                                             ₹{(Number(d.itemTotal) || 0).toFixed(0)}
                                         </td>
-                                        <td className="px-3 py-2 text-[14px] font-black text-blue-600 whitespace-nowrap">
+                                        <td className="px-3 py-2 text-[14px] text-blue-600 whitespace-nowrap">
                                             {d.transport?.vehicleNumber || '-'}
                                         </td>
-                                        <td className="px-3 py-2 text-[14px] text-slate-800 font-bold truncate max-w-[180px]" title={d.remarks}>
+                                        <td className="px-3 py-2 text-[14px] text-slate-800 truncate max-w-[180px]" title={d.remarks}>
                                             {d.remarks || '-'}
                                         </td>
                                     </tr>
@@ -232,34 +256,34 @@ export default function Dashboard() {
                             <div key={d.id} className="p-3 bg-white flex flex-col gap-1.5">
                                 <div className="flex justify-between items-start">
                                     <div className="space-y-0.5">
-                                        <div className="font-mono font-bold text-slate-900 text-[10px]">{d.invoiceNo}</div>
+                                        <div className="font-mono text-slate-900 text-[10px]">{d.invoiceNo}</div>
                                         <div className="text-sm text-slate-900 font-black uppercase tracking-tight leading-none">{d.customerName || 'No Customer'}</div>
                                     </div>
                                     <div className="text-right">
-                                        <div className="text-sm font-black text-blue-600">₹{(Number(d.itemTotal) || 0).toFixed(0)}</div>
-                                        <div className="text-[8px] text-slate-500 font-bold uppercase mt-0.5">Basic: ₹{((Number(d.quantity) || 0) * (Number(d.unitPrice) || 0)).toFixed(0)}</div>
+                                        <div className="text-sm text-blue-600">₹{(Number(d.itemTotal) || 0).toFixed(0)}</div>
+                                        <div className="text-[8px] text-slate-500 uppercase mt-0.5">Basic: ₹{((Number(d.quantity) || 0) * (Number(d.unitPrice) || 0)).toFixed(0)}</div>
                                     </div>
                                 </div>
                                 <div className="flex justify-between items-center bg-slate-50 px-2 py-1 rounded">
-                                    <div className="font-bold text-slate-900 text-[12px] truncate max-w-[150px]">{d.productName || 'Unknown'}</div>
-                                    <div className="text-[9px] font-bold text-blue-600">
+                                    <div className="text-slate-900 text-[12px] truncate max-w-[150px]">{d.productName || 'Unknown'}</div>
+                                    <div className="text-[9px] text-blue-600">
                                         {d.bags ? `${d.bags} x ${d.bagWeight}kg` : '-'}
                                     </div>
                                 </div>
                                 <div className="flex justify-between items-end border-t border-slate-50 pt-1.5">
                                     <div className="space-y-1">
-                                        <div className="text-[11px] text-blue-700 font-black flex items-center gap-1">
+                                        <div className="text-[11px] text-blue-700 flex items-center gap-1">
                                             <Truck className="h-3 w-3" /> {d.transport?.vehicleNumber || 'NO VEHICLE'}
                                         </div>
-                                        <span className="flex items-center gap-1 text-[9px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded uppercase w-fit">
+                                        <span className="flex items-center gap-1 text-[9px] text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded uppercase w-fit">
                                             <MapPin className="h-2 w-2" /> {d.location}
                                         </span>
                                     </div>
                                     <div className="text-right space-y-0.5">
-                                        <div className="text-[10px] text-slate-900 font-black">
+                                        <div className="text-[10px] text-slate-900">
                                             {(Number(d.quantity) || 0).toFixed(1)} mts
                                         </div>
-                                        {d.remarks && <div className="text-[11px] text-slate-700 font-bold italic mt-0.5 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-100 max-w-[180px]">Note: {d.remarks}</div>}
+                                        {d.remarks && <div className="text-[11px] text-slate-700 italic mt-0.5 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-100 max-w-[180px]">Note: {d.remarks}</div>}
                                     </div>
                                 </div>
                             </div>
@@ -273,6 +297,106 @@ export default function Dashboard() {
                     )}
                 </div>
             </section>
+
+            {/* Inward Stock Summary */}
+            <section>
+                <div className="flex items-center justify-between mb-4 mt-8">
+                    <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                        <TrendingUp className="h-5 w-5 text-emerald-600" />
+                        RECENT INWARDS (Imports/Local)
+                    </h3>
+                    <button onClick={() => navigate('/stock-management')} className="text-sm text-emerald-600 font-medium hover:underline flex items-center gap-1">
+                        View All <ArrowRight className="h-3 w-3" />
+                    </button>
+                </div>
+                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div className="hidden sm:block overflow-x-auto">
+                        <table className="w-full text-left text-sm text-slate-600">
+                            <thead className="bg-slate-50 text-slate-700 font-black uppercase text-[11px] tracking-wider">
+                                <tr>
+                                    <th className="px-3 py-2">Date</th>
+                                    <th className="px-3 py-2">Type</th>
+                                    <th className="px-3 py-2">Vendor/Supplier</th>
+                                    <th className="px-3 py-2">Product</th>
+                                    <th className="px-3 py-2 text-right">Qty</th>
+                                    <th className="px-3 py-2">Ref No</th>
+                                    <th className="px-3 py-2">Vehicle</th>
+                                    <th className="px-3 py-2">Warehouse</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {recentInwards.map(item => (
+                                    <tr key={item.id} className="hover:bg-slate-50 transition-colors">
+                                        <td className="px-3 py-2 text-slate-500 text-[14px]">
+                                            {item.createdAt?.seconds ? format(new Date(item.createdAt.seconds * 1000), 'dd MMM') : '-'}
+                                        </td>
+                                        <td className="px-3 py-2 whitespace-nowrap">
+                                            <span className={`text-[10px] font-black px-1.5 py-0.5 rounded leading-none ${item.type === 'IMPORT' ? 'bg-indigo-100 text-indigo-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                                                {item.type}
+                                            </span>
+                                        </td>
+                                        <td className="px-3 py-2 text-slate-900 font-bold truncate max-w-[150px] text-[14px]">
+                                            {item.supplierName || '-'}
+                                        </td>
+                                        <td className="px-3 py-2 text-slate-900 text-[14px] leading-tight truncate max-w-[120px]">
+                                            {products.find(p => p.id === item.productId)?.name || 'Unknown'}
+                                        </td>
+                                        <td className="px-3 py-2 text-right text-slate-800 text-[14px]">
+                                            {(Number(item.quantity) || 0).toFixed(1)} <span className="text-[11px] text-slate-400 font-normal">mts</span>
+                                        </td>
+                                        <td className="px-3 py-2 font-mono text-slate-600 text-[12px]">
+                                            {item.beNumber || item.invoiceNo || '-'}
+                                        </td>
+                                        <td className="px-3 py-2 text-[14px] text-blue-600 font-medium">
+                                            {item.vehicleNumber || '-'}
+                                        </td>
+                                        <td className="px-3 py-2">
+                                            <span className="flex items-center gap-1 text-[10px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded uppercase w-fit">
+                                                <MapPin className="h-2 w-2" /> {item.location}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {/* Mobile View */}
+                    <div className="sm:hidden divide-y divide-slate-100">
+                        {recentInwards.map(item => (
+                            <div key={item.id} className="p-3 bg-white flex flex-col gap-1.5">
+                                <div className="flex justify-between items-start">
+                                    <div className="flex gap-2 items-center">
+                                        <span className={`text-[8px] font-black px-1 py-0.5 rounded ${item.type === 'IMPORT' ? 'bg-indigo-100 text-indigo-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                                            {item.type}
+                                        </span>
+                                        <div className="text-sm text-slate-900 font-black uppercase tracking-tight">{item.supplierName || 'Unknown'}</div>
+                                    </div>
+                                    <div className="text-xs font-black text-slate-900">{(Number(item.quantity) || 0).toFixed(1)} mts</div>
+                                </div>
+                                <div className="flex justify-between items-center text-[12px] text-slate-600">
+                                    <span>{products.find(p => p.id === item.productId)?.name || 'Unknown'}</span>
+                                    <span className="font-mono text-[10px] text-slate-400">{item.beNumber || item.invoiceNo}</span>
+                                </div>
+                                <div className="flex justify-between items-center mt-1">
+                                    <div className="text-[10px] text-blue-600 font-bold flex items-center gap-1">
+                                        <Truck className="h-3 w-3" /> {item.vehicleNumber || 'NO VEHICLE'}
+                                    </div>
+                                    <span className="text-[8px] bg-slate-100 px-1.5 py-0.5 rounded font-bold uppercase text-slate-500">{item.location}</span>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {recentInwards.length === 0 && (
+                        <div className="px-6 py-12 text-center text-slate-400 bg-white">
+                            No inward entries yet.
+                        </div>
+                    )}
+                </div>
+            </section>
+
+            <div className="h-4" />
 
             {/* Update Stock Modal */}
             {isStockModalOpen && (

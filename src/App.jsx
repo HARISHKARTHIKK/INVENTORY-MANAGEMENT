@@ -11,6 +11,11 @@ import Customers from './pages/Customers';
 import Reports from './pages/Reports';
 import Dispatch from './pages/Dispatch';
 import Settings from './pages/Settings';
+import Transporters from './pages/Transporters';
+import TransporterReports from './pages/TransporterReports';
+import Expenses from './pages/Expenses';
+import StockManagement from './pages/StockManagement';
+import Suppliers from './pages/Suppliers';
 
 const ProtectedRoute = ({ children, allowedRoles }) => {
   const { currentUser, userRole, loading, logout } = useAuth();
@@ -119,6 +124,11 @@ export default function App() {
             <Route path="/customers" element={<ProtectedRoute><Customers /></ProtectedRoute>} />
             <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
             <Route path="/dispatch" element={<ProtectedRoute><Dispatch /></ProtectedRoute>} />
+            <Route path="/transporters" element={<ProtectedRoute><Transporters /></ProtectedRoute>} />
+            <Route path="/transporter-reports" element={<ProtectedRoute><TransporterReports /></ProtectedRoute>} />
+            <Route path="/expenses" element={<ProtectedRoute><Expenses /></ProtectedRoute>} />
+            <Route path="/stock-management" element={<ProtectedRoute><StockManagement /></ProtectedRoute>} />
+            <Route path="/suppliers" element={<ProtectedRoute><Suppliers /></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute allowedRoles={['admin']}><Settings /></ProtectedRoute>} />
           </Routes>
         </Router>

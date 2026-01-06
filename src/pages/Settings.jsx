@@ -91,6 +91,12 @@ export default function Settings() {
         setFormData(prev => ({ ...prev, locations: newLocs }));
     };
 
+    const removeLocation = (index) => {
+        if (!confirm("Are you sure you want to delete this location?")) return;
+        const newLocs = formData.locations.filter((_, i) => i !== index);
+        setFormData(prev => ({ ...prev, locations: newLocs }));
+    };
+
     const handleBackfill = async () => {
         if (!confirm("Sync/Backfill will generate dispatch records for historical invoices. Continue?")) return;
         setSaving(true);
@@ -240,7 +246,7 @@ export default function Settings() {
                                 </button>
                             </div>
                             <div className="grid grid-cols-1 gap-4">
-                                {formData.locations.map((loc, idx) => (
+                                {formData.locations.filter(l => !['Store Front', 'Factory'].includes(l.name)).map((loc, idx) => (
                                     <div key={idx} className={`p-4 rounded-xl border transition-all ${loc.active ? 'bg-white border-slate-200 shadow-sm' : 'bg-slate-50 border-slate-100 opacity-60'}`}>
                                         <div className="flex flex-col gap-4">
                                             <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -266,7 +272,10 @@ export default function Settings() {
                                                     <input type="number" placeholder="1001" className="w-full p-2.5 border rounded-lg text-sm font-mono font-bold" value={loc.nextNumber || ''} onChange={e => handleLocationChange(idx, 'nextNumber', parseInt(e.target.value) || 0)} />
                                                 </div>
                                             </div>
-                                            <div className="flex justify-end pt-3 border-t border-slate-50">
+                                            <div className="flex justify-end pt-3 border-t border-slate-50 gap-2">
+                                                <button onClick={() => removeLocation(idx)} className="p-2 hover:bg-rose-50 text-rose-500 rounded-lg transition-colors border border-transparent hover:border-rose-100">
+                                                    <Trash2 className="h-4 w-4" />
+                                                </button>
                                                 <button onClick={() => toggleLocation(idx)} className={`px-4 py-2 text-xs font-black rounded-lg uppercase tracking-wider ${loc.active ? 'bg-green-50 text-green-700 hover:bg-green-100 border border-green-200' : 'bg-slate-200 text-slate-600 hover:bg-slate-300'}`}>
                                                     {loc.active ? 'Active' : 'Inactive'}
                                                 </button>

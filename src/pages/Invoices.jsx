@@ -167,7 +167,7 @@ export default function Invoices() {
                 </div>
 
                 <div className="hidden sm:block overflow-x-auto">
-                    <table className="w-full text-left text-sm text-slate-600">
+                    <table className="w-full text-left text-sm text-slate-600 min-w-[1000px]">
                         <thead className="bg-slate-50 text-slate-700 font-semibold uppercase text-xs tracking-wider">
                             <tr>
                                 <th className="px-6 py-4">Invoice No</th>
@@ -279,9 +279,15 @@ function CreateInvoice({ onCancel, onSuccess }) {
     const [selectedCustomer, setSelectedCustomer] = useState('');
     const [fromLocation, setFromLocation] = useState(userData?.location || 'CHENNAI');
     const [invoiceNo, setInvoiceNo] = useState('');
-    const [lines, setLines] = useState([]);
+    const [lines, setLines] = useState([{ productId: '', qty: '0', price: '0', stock: 0, bags: '', bagWeight: '' }]);
     const [remarks, setRemarks] = useState('');
     const [submitting, setSubmitting] = useState(false);
+
+    // New Logistics State
+    const [transporters, setTransporters] = useState([]);
+    const [transporterId, setTransporterId] = useState('');
+    const [vehicleNumber, setVehicleNumber] = useState('');
+    const [paymentType, setPaymentType] = useState('Payable');
 
     const baseLocations = settings?.locations?.filter(l => l.active).map(l => l.name) || ['Warehouse A', 'Warehouse B', 'Store Front', 'Factory'];
     const LOCATIONS = [...new Set([...baseLocations, userData?.location].filter(Boolean))];
@@ -325,9 +331,15 @@ function CreateInvoice({ onCancel, onSuccess }) {
             setProducts(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
         });
 
+        const qTransporters = query(collection(db, 'transporters'), orderBy('name'));
+        const unsubTransporters = onSnapshot(qTransporters, (snapshot) => {
+            setTransporters(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+        });
+
         return () => {
             unsubCustomers();
             unsubProducts();
+            unsubTransporters();
         };
     }, []);
 
@@ -456,6 +468,11 @@ function CreateInvoice({ onCancel, onSuccess }) {
                     mode: transport.mode,
                     isExtra: transport.isExtra
                 },
+                transporterId: transporterId,
+                transporterName: transporters.find(t => t.id === transporterId)?.name || '',
+                vehicleNumber: vehicleNumber,
+                paymentType: paymentType,
+                transportationCost: Number(transport.amount) || 0,
                 status: 'paid'
             }, preparedItems, fromLocation);
 
@@ -558,7 +575,7 @@ function CreateInvoice({ onCancel, onSuccess }) {
                             </button>
                         </div>
                         <div className="p-0 overflow-x-auto">
-                            <table className="w-full">
+                            <table className="w-full min-w-[800px]">
                                 <thead className="bg-slate-50/50 text-[11px] font-black uppercase text-slate-400 border-b">
                                     <tr>
                                         <th className="px-4 py-3 text-left">Product Selection</th>
@@ -613,9 +630,10 @@ function CreateInvoice({ onCancel, onSuccess }) {
                                                 <div className="relative">
                                                     <input
                                                         type="text"
-                                                        className="w-full bg-slate-100/50 border-none rounded-lg pl-2 pr-8 py-2 text-center text-sm font-black text-indigo-600 focus:ring-2 focus:ring-indigo-500 outline-none"
+                                                        readOnly
+                                                        tabIndex="-1"
+                                                        className="w-full bg-slate-100 border-none rounded-lg pl-2 pr-8 py-2 text-center text-sm font-black text-indigo-600 cursor-not-allowed outline-none"
                                                         value={line.qty}
-                                                        onChange={(e) => updateLine(idx, 'qty', e.target.value)}
                                                     />
                                                     <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-black text-slate-400">MTS</span>
                                                 </div>
@@ -630,9 +648,12 @@ function CreateInvoice({ onCancel, onSuccess }) {
                                                 />
                                             </td>
                                             <td className="px-4 py-2.5 text-right">
-                                                <span className="text-sm font-black text-slate-900 uppercase">
-                                                    ₹ {(Number(String(line.qty || 0).replace(/[^0-9.]/g, '')) * Number(String(line.price || 0).replace(/[^0-9.]/g, ''))).toLocaleString('en-IN', { minimumFractionDigits: 1 })}
-                                                </span>
+                                                <input
+                                                    readOnly
+                                                    tabIndex="-1"
+                                                    className="w-full bg-slate-100 border-none rounded-lg px-2 py-2 text-right text-sm font-black text-slate-900 cursor-not-allowed outline-none"
+                                                    value={`₹ ${(Number(String(line.qty || 0).replace(/[^0-9.]/g, '')) * Number(String(line.price || 0).replace(/[^0-9.]/g, ''))).toLocaleString('en-IN', { minimumFractionDigits: 1 })}`}
+                                                />
                                             </td>
                                             <td className="px-4 py-2.5 text-right">
                                                 <button onClick={() => removeLine(idx)} className="p-1.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all">
@@ -654,19 +675,37 @@ function CreateInvoice({ onCancel, onSuccess }) {
                     <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
                         <div className="flex items-center gap-3 mb-4">
                             <div className="h-6 w-1 bg-blue-600 rounded-full"></div>
-                            <h3 className="font-black text-slate-800 uppercase tracking-widest text-xs">Transportation & Notes</h3>
+                            <h3 className="font-black text-slate-800 uppercase tracking-widest text-xs">Transportation, Logistics & Notes</h3>
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {/* Column 1: Vehicle & Transporter */}
                             <div className="space-y-3">
+                                <div>
+                                    <label className="block text-[9px] font-black text-slate-400 uppercase mb-1.5">Select Transporter</label>
+                                    <select
+                                        className="w-full bg-slate-50 border-slate-200 rounded-xl px-3 py-2 text-xs font-bold focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer"
+                                        value={transporterId}
+                                        onChange={(e) => setTransporterId(e.target.value)}
+                                    >
+                                        <option value="">Select Transporter...</option>
+                                        {transporters.map(t => (
+                                            <option key={t.id} value={t.id}>{t.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
                                 <div>
                                     <label className="block text-[9px] font-black text-slate-400 uppercase mb-1.5">Vehicle / Truck Number</label>
                                     <input
                                         className="w-full bg-slate-50 border-slate-200 rounded-xl px-3 py-2 text-xs font-bold focus:ring-2 focus:ring-blue-500 outline-none uppercase font-mono"
                                         placeholder="MH-XX-XX-XXXX"
-                                        value={transport.vehicleNumber}
-                                        onChange={e => setTransport({ ...transport, vehicleNumber: e.target.value.toUpperCase() })}
+                                        value={vehicleNumber}
+                                        onChange={e => setVehicleNumber(e.target.value.toUpperCase())}
                                     />
                                 </div>
+                            </div>
+
+                            {/* Column 2: Cost & Payment */}
+                            <div className="space-y-3">
                                 <div className="grid grid-cols-2 gap-3">
                                     <div>
                                         <label className="block text-[9px] font-black text-slate-400 uppercase mb-1.5">Cost (₹)</label>
@@ -677,6 +716,26 @@ function CreateInvoice({ onCancel, onSuccess }) {
                                             onChange={e => setTransport({ ...transport, amount: e.target.value })}
                                         />
                                     </div>
+                                    <div>
+                                        <label className="block text-[9px] font-black text-slate-400 uppercase mb-1.5">Payment Type</label>
+                                        <select
+                                            className={`w-full border-slate-200 rounded-xl px-3 py-2 text-xs font-bold focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer transition-colors ${paymentType === 'Payable' ? 'bg-indigo-50 text-indigo-700' : 'bg-orange-50 text-orange-700'}`}
+                                            value={paymentType}
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                setPaymentType(val);
+                                                setTransport(prev => ({
+                                                    ...prev,
+                                                    isExtra: val === 'To Pay'
+                                                }));
+                                            }}
+                                        >
+                                            <option value="Payable">Payable</option>
+                                            <option value="To Pay">To Pay</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
                                     <div>
                                         <label className="block text-[9px] font-black text-slate-400 uppercase mb-1.5">Method</label>
                                         <select
@@ -690,27 +749,21 @@ function CreateInvoice({ onCancel, onSuccess }) {
                                             ))}
                                         </select>
                                     </div>
+                                    <div>
+                                        <label className="block text-[9px] font-black text-slate-400 uppercase mb-1.5">Pricing</label>
+                                        <select
+                                            className="w-full bg-slate-50 border-slate-200 rounded-xl px-3 py-2 text-xs font-bold focus:ring-2 focus:ring-blue-500 outline-none"
+                                            value={transport.isExtra ? 'Extra' : 'Included'}
+                                            onChange={e => setTransport({ ...transport, isExtra: e.target.value === 'Extra' })}
+                                        >
+                                            <option value="Included">Included</option>
+                                            <option value="Extra">Extra Cost</option>
+                                        </select>
+                                    </div>
                                 </div>
                             </div>
-                            <div className="space-y-3">
-                                <label className="block text-[9px] font-black text-slate-400 uppercase mb-1.5">Pricing Logic</label>
-                                <div className="space-y-2">
-                                    <label className={`flex items-center gap-2.5 p-3 rounded-xl border-2 transition-all cursor-pointer ${!transport.isExtra ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-slate-50 border-transparent text-slate-500'}`}>
-                                        <input type="radio" name="transportType" checked={!transport.isExtra} onChange={() => setTransport({ ...transport, isExtra: false })} className="hidden" />
-                                        <div className={`h-3.5 w-3.5 rounded-full border-2 flex items-center justify-center ${!transport.isExtra ? 'border-blue-600' : 'border-slate-300'}`}>
-                                            {!transport.isExtra && <div className="h-1.5 w-1.5 bg-blue-600 rounded-full"></div>}
-                                        </div>
-                                        <span className="text-xs font-bold">Included in Rate</span>
-                                    </label>
-                                    <label className={`flex items-center gap-2.5 p-3 rounded-xl border-2 transition-all cursor-pointer ${transport.isExtra ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'bg-slate-50 border-transparent text-slate-500'}`}>
-                                        <input type="radio" name="transportType" checked={transport.isExtra} onChange={() => setTransport({ ...transport, isExtra: true })} className="hidden" />
-                                        <div className={`h-3.5 w-3.5 rounded-full border-2 flex items-center justify-center ${transport.isExtra ? 'border-indigo-600' : 'border-slate-300'}`}>
-                                            {transport.isExtra && <div className="h-1.5 w-1.5 bg-indigo-600 rounded-full"></div>}
-                                        </div>
-                                        <span className="text-xs font-bold">Charged Extra</span>
-                                    </label>
-                                </div>
-                            </div>
+
+                            {/* Column 3: Remarks */}
                             <div className="space-y-3">
                                 <label className="block text-[11px] font-black text-slate-400 uppercase mb-1.5">Remarks / Internal Notes</label>
                                 <textarea
@@ -731,23 +784,38 @@ function CreateInvoice({ onCancel, onSuccess }) {
                         </div>
                         <h4 className="text-slate-400 text-[11px] font-black uppercase tracking-[0.2em] mb-8">Billing Summary</h4>
                         <div className="space-y-6 relative z-10">
-                            <div className="flex justify-between items-end border-b border-slate-100 pb-4">
+                            <div className="flex justify-between items-center border-b border-slate-100 pb-4">
                                 <span className="text-slate-500 text-sm font-bold">Subtotal</span>
-                                <span className="text-xl font-bold text-slate-800 tracking-tighter">₹ {linesTotal.toFixed(1)}</span>
+                                <input
+                                    readOnly
+                                    tabIndex="-1"
+                                    className="w-32 bg-slate-50 border-none text-right text-lg font-bold text-slate-800 tracking-tighter cursor-not-allowed outline-none rounded-lg px-2 py-1"
+                                    value={`₹ ${linesTotal.toFixed(1)}`}
+                                />
                             </div>
                             {transport.isExtra && (
-                                <div className="flex justify-between items-end border-b border-slate-100 pb-4">
+                                <div className="flex justify-between items-center border-b border-slate-100 pb-4">
                                     <span className="text-slate-500 text-sm font-bold">Transport</span>
-                                    <span className="text-xl font-bold text-blue-600 tracking-tighter">+ ₹ {Number(transport.amount).toFixed(1)}</span>
+                                    <input
+                                        readOnly
+                                        tabIndex="-1"
+                                        className="w-32 bg-blue-50 border-none text-right text-lg font-bold text-blue-600 tracking-tighter cursor-not-allowed outline-none rounded-lg px-2 py-1"
+                                        value={`+ ₹ ${Number(transport.amount).toFixed(1)}`}
+                                    />
                                 </div>
                             )}
-                            <div className="flex justify-between items-end border-b border-slate-100 pb-4">
+                            <div className="flex justify-between items-center border-b border-slate-100 pb-4">
                                 <span className="text-slate-500 text-sm font-bold">GST (18%)</span>
-                                <span className="text-xl font-bold text-amber-600 tracking-tighter">+ ₹ {tax.toFixed(1)}</span>
+                                <input
+                                    readOnly
+                                    tabIndex="-1"
+                                    className="w-32 bg-amber-50 border-none text-right text-lg font-bold text-amber-600 tracking-tighter cursor-not-allowed outline-none rounded-lg px-2 py-1"
+                                    value={`+ ₹ ${tax.toFixed(1)}`}
+                                />
                             </div>
                             <div className="pt-4 flex flex-col gap-2">
                                 <span className="text-slate-400 text-[10px] font-black uppercase tracking-widest text-center">Grand Total</span>
-                                <div className="text-5xl font-black text-center text-slate-900 tracking-tighter whitespace-nowrap">
+                                <div className="text-5xl font-black text-center text-slate-900 tracking-tighter whitespace-nowrap bg-slate-50 py-4 rounded-3xl border border-slate-100 cursor-not-allowed">
                                     <span className="text-blue-600 text-2xl mr-1">₹</span>
                                     {total.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                                     <span className="text-slate-300 text-xl font-light">.{total.toFixed(1).split('.')[1]}</span>
@@ -850,10 +918,9 @@ function InvoiceViewModal({ invoice, onClose }) {
                                     <span>{invoice.transport.mode || '-'}</span>
                                 </div>
                                 <div>
-                                    <span className="text-slate-500 block text-xs">Charges</span>
-                                    <span>
-                                        ₹ {invoice.transport.amount}
-                                        {invoice.transport.isExtra ? ' (Extra)' : ' (Included)'}
+                                    <span className="text-slate-500 block text-xs">Payment</span>
+                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${invoice.paymentType === 'Payable' ? 'bg-indigo-100 text-indigo-700' : 'bg-orange-100 text-orange-700'}`}>
+                                        {invoice.paymentType || 'Payable'}
                                     </span>
                                 </div>
                             </div>

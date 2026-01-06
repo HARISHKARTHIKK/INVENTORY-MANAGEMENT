@@ -37,9 +37,7 @@ export const SettingsProvider = ({ children }) => {
         },
         locations: [
             { name: 'Warehouse A', type: 'Warehouse', active: true },
-            { name: 'Warehouse B', type: 'Warehouse', active: true },
-            { name: 'Store Front', type: 'Store', active: true },
-            { name: 'Factory', type: 'Plant', active: true }
+            { name: 'Warehouse B', type: 'Warehouse', active: true }
         ],
         transport: {
             enable: true,

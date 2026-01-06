@@ -10,7 +10,8 @@ import {
     getDocs,
     runTransaction,
     query,
-    where
+    where,
+    writeBatch
 } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { getAuth } from "firebase/auth";
@@ -75,9 +76,95 @@ export const updateCustomer = async (id, data) => {
     });
 };
 
-export const deleteCustomer = async (id) => {
-    await deleteDoc(doc(db, "customers", id));
+export const deleteCustomer = (id) => deleteDoc(doc(db, 'customers', id));
+
+/* =========================
+   TRANSPORTERS
+========================= */
+
+export const addTransporter = async (data) => {
+    return addDoc(collection(db, 'transporters'), {
+        ...data,
+        createdAt: serverTimestamp()
+    });
 };
+
+export const updateTransporter = (id, data) => updateDoc(doc(db, 'transporters', id), data);
+
+export const deleteTransporter = (id) => deleteDoc(doc(db, 'transporters', id));
+
+/* =========================
+   SUPPLIERS
+========================= */
+
+export const addSupplier = async (data) => {
+    const auth = getAuth();
+    if (!auth.currentUser) throw new Error("User not authenticated");
+
+    return await addDoc(collection(db, "suppliers"), {
+        ...data,
+        userId: auth.currentUser.uid,
+        createdAt: serverTimestamp()
+    });
+};
+
+export const updateSupplier = async (id, data) => {
+    await updateDoc(doc(db, "suppliers", id), {
+        ...data,
+        updatedAt: serverTimestamp()
+    });
+};
+
+export const deleteSupplier = (id) => deleteDoc(doc(db, 'suppliers', id));
+
+/* =========================
+   EXPENSES
+========================= */
+
+export const addExpense = async (data) => {
+    return addDoc(collection(db, 'expenses'), {
+        ...data,
+        createdAt: serverTimestamp()
+    });
+};
+
+export const addExpensesBulk = async (expenses) => {
+    const batch = writeBatch(db);
+    const expensesCol = collection(db, 'expenses');
+    expenses.forEach(exp => {
+        const newDocRef = doc(expensesCol);
+        batch.set(newDocRef, {
+            ...exp,
+            createdAt: serverTimestamp()
+        });
+    });
+    return batch.commit();
+};
+
+export const updateExpense = (id, data) => updateDoc(doc(db, 'expenses', id), {
+    ...data,
+    updatedAt: serverTimestamp()
+});
+
+export const deleteExpense = (id) => deleteDoc(doc(db, 'expenses', id));
+
+/* =========================
+   INCOME
+========================= */
+
+export const addIncome = async (data) => {
+    return addDoc(collection(db, 'income'), {
+        ...data,
+        createdAt: serverTimestamp()
+    });
+};
+
+export const updateIncome = (id, data) => updateDoc(doc(db, 'income', id), {
+    ...data,
+    updatedAt: serverTimestamp()
+});
+
+export const deleteIncome = (id) => deleteDoc(doc(db, 'income', id));
 
 /* =========================
    INVOICES
@@ -128,16 +215,15 @@ export const createInvoice = async (invoice, items, fromLocation) => {
 
             const data = snap.data();
             const globalStock = Number(data.stockQty) || 0;
+            const locations = data.locations || {};
+            const currentLocStock = Number(locations[fromLocation]) || 0;
 
-            if (globalStock < quantity) {
-                // Allow if quantity is 0, otherwise block
+            if (currentLocStock < quantity) {
                 if (quantity > 0) {
-                    throw new Error(`Insufficient global stock for ${item.name}. Available: ${globalStock.toFixed(1)}, Requested: ${quantity.toFixed(1)}`);
+                    throw new Error(`Insufficient stock at "${fromLocation}" for ${item.name}. Available: ${currentLocStock.toFixed(1)}, Requested: ${quantity.toFixed(1)}`);
                 }
             }
 
-            const locations = data.locations || {};
-            const currentLocStock = Number(locations[fromLocation]) || 0;
             const newLocStock = Number((currentLocStock - quantity).toFixed(1));
 
             // Derive new locations map
@@ -155,9 +241,12 @@ export const createInvoice = async (invoice, items, fromLocation) => {
             });
 
             itemsSummary.push({
+                productId: item.productId,
                 productName: item.name || '',
                 quantity: quantity,
-                price: Number(item.price) || 0
+                price: Number(item.price) || 0,
+                bags: Number(item.bags) || 0,
+                bagWeight: Number(item.bagWeight) || 0
             });
         });
 
@@ -504,5 +593,177 @@ export const transferStock = async ({ productId, productName, fromLocation, toLo
             userId: uid,
             createdAt: serverTimestamp()
         });
+    });
+};
+
+/* =========================
+   STOCK MANAGEMENT (IMPORT & LOCAL)
+   ========================= */
+
+export const addImportEntry = async (data) => {
+    const auth = getAuth();
+    if (!auth.currentUser) throw new Error("User not authenticated");
+    const uid = auth.currentUser.uid;
+
+    return await runTransaction(db, async (transaction) => {
+        const productRef = doc(db, "products", data.productId);
+        const productSnap = await transaction.get(productRef);
+        if (!productSnap.exists()) throw new Error("Product not found");
+
+        const productData = productSnap.data();
+        const locations = productData.locations || {};
+        const targetLocation = data.location || 'Warehouse A';
+        const currentLocStock = Number(locations[targetLocation]) || 0;
+        const addQty = Number(data.quantity);
+
+        const newLocStock = Number((currentLocStock + addQty).toFixed(1));
+        const newLocations = { ...locations, [targetLocation]: newLocStock };
+        const newTotalStock = Object.values(newLocations).reduce((a, b) => a + (Number(b) || 0), 0);
+
+        const beNumber = String(data.beNumber || "").toUpperCase();
+        const blNumber = String(data.blNumber || "").toUpperCase();
+
+        const importRef = doc(collection(db, "imports"));
+        transaction.set(importRef, {
+            ...data,
+            beNumber,
+            blNumber,
+            userId: uid,
+            createdAt: serverTimestamp()
+        });
+
+        transaction.update(productRef, {
+            locations: newLocations,
+            stockQty: Number(newTotalStock.toFixed(1)),
+            updatedAt: serverTimestamp()
+        });
+
+        const moveRef = doc(collection(db, "stockMovements"));
+        transaction.set(moveRef, {
+            productId: data.productId,
+            productName: productData.name,
+            location: targetLocation,
+            changeQty: addQty,
+            type: 'IMPORT',
+            reason: `Import BE: ${beNumber}`,
+            referenceId: importRef.id,
+            userId: uid,
+            createdAt: serverTimestamp()
+        });
+
+        // Sync purchase with Expenses if Amount Paid > 0
+        if (Number(data.amountPaid) > 0) {
+            const expenseRef = doc(collection(db, "expenses"));
+            transaction.set(expenseRef, {
+                date: data.date,
+                category: 'Purchase/Stock In',
+                amount: Number(data.amountPaid),
+                description: `IMPORT PURCHASE: ${data.supplierName} (BE: ${beNumber})`.toUpperCase(),
+                mode: data.paymentMode || 'Bank Transfer',
+                userId: uid,
+                createdAt: serverTimestamp()
+            });
+        }
+
+        // Sync Logistics Cost to Expenses if Cost > 0
+        if (Number(data.transportCost) > 0) {
+            const transportExpenseRef = doc(collection(db, "expenses"));
+            transaction.set(transportExpenseRef, {
+                date: data.date,
+                category: 'Logistics',
+                amount: Number(data.transportCost),
+                description: `INWARD FREIGHT (IMPORT): ${data.transporterName} (BE: ${beNumber})`.toUpperCase(),
+                mode: data.transportPaymentType === 'Paid' ? 'Bank Transfer' : 'CREDIT',
+                userId: uid,
+                createdAt: serverTimestamp()
+            });
+        }
+    });
+};
+
+export const addLocalPurchase = async (data, addToExpense = false) => {
+    const auth = getAuth();
+    if (!auth.currentUser) throw new Error("User not authenticated");
+    const uid = auth.currentUser.uid;
+
+    return await runTransaction(db, async (transaction) => {
+        const productRef = doc(db, "products", data.productId);
+        const productSnap = await transaction.get(productRef);
+        if (!productSnap.exists()) throw new Error("Product not found");
+
+        const productData = productSnap.data();
+        const locations = productData.locations || {};
+        const targetLocation = data.location || 'Warehouse A';
+        const currentLocStock = Number(locations[targetLocation]) || 0;
+        const addQty = Number(data.quantity);
+
+        const newLocStock = Number((currentLocStock + addQty).toFixed(1));
+        const newLocations = { ...locations, [targetLocation]: newLocStock };
+        const newTotalStock = Object.values(newLocations).reduce((a, b) => a + (Number(b) || 0), 0);
+
+        const purchaseRef = doc(collection(db, "localPurchases"));
+        transaction.set(purchaseRef, {
+            ...data,
+            userId: uid,
+            createdAt: serverTimestamp()
+        });
+
+        transaction.update(productRef, {
+            locations: newLocations,
+            stockQty: Number(newTotalStock.toFixed(1)),
+            updatedAt: serverTimestamp()
+        });
+
+        const moveRef = doc(collection(db, "stockMovements"));
+        transaction.set(moveRef, {
+            productId: data.productId,
+            productName: productData.name,
+            location: targetLocation,
+            changeQty: addQty,
+            type: 'LOCAL_PURCHASE',
+            reason: `Local Purchase Inv: ${data.invoiceNo}`,
+            referenceId: purchaseRef.id,
+            userId: uid,
+            createdAt: serverTimestamp()
+        });
+
+        // Sync purchase with Expenses if Amount Paid > 0
+        if (Number(data.amountPaid) > 0) {
+            const expenseRef = doc(collection(db, "expenses"));
+            transaction.set(expenseRef, {
+                date: data.date,
+                category: 'Purchase/Stock In',
+                amount: Number(data.amountPaid),
+                description: `LOCAL PURCHASE: ${data.supplierName} (INV: ${data.invoiceNo})`.toUpperCase(),
+                mode: data.paymentMode || 'Bank Transfer',
+                userId: uid,
+                createdAt: serverTimestamp()
+            });
+        } else if (addToExpense) {
+            // Fallback for legacy "Add to Expenses" checkbox if amountPaid is 0
+            const expenseRef = doc(collection(db, "expenses"));
+            transaction.set(expenseRef, {
+                date: data.date,
+                category: 'Other OVERHEADS',
+                amount: Number(data.totalPrice),
+                description: `LOCAL PURCHASE (Legacy): ${data.supplierName} (INV: ${data.invoiceNo})`.toUpperCase(),
+                userId: uid,
+                createdAt: serverTimestamp()
+            });
+        }
+
+        // Sync Logistics Cost to Expenses if Cost > 0
+        if (Number(data.transportCost) > 0) {
+            const transportExpenseRef = doc(collection(db, "expenses"));
+            transaction.set(transportExpenseRef, {
+                date: data.date,
+                category: 'Logistics',
+                amount: Number(data.transportCost),
+                description: `INWARD FREIGHT (LOCAL): ${data.transporterName} (INV: ${data.invoiceNo})`.toUpperCase(),
+                mode: data.transportPaymentType === 'Paid' ? 'Bank Transfer' : 'CREDIT',
+                userId: uid,
+                createdAt: serverTimestamp()
+            });
+        }
     });
 };
