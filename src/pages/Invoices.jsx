@@ -95,17 +95,17 @@ export default function Invoices() {
         return <CreateInvoice onCancel={() => setView('list')} onSuccess={() => setView('list')} />;
     }
 
-    if (loading) return <div className="flex h-96 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-blue-600" /></div>;
+    if (loading) return <div className="flex h-96 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-blue-600 dark:text-blue-400" /></div>;
 
     return (
         <div className="space-y-6 animate-fade-in-up">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
-                    <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-                        <FileText className="h-6 w-6 text-blue-600" />
+                    <h2 className="text-2xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                        <FileText className="h-6 w-6 text-blue-600 dark:text-blue-400" />
                         Invoices
                     </h2>
-                    <p className="text-sm text-slate-500 mt-1">Manage and generate tax invoices</p>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Manage and generate tax invoices</p>
                 </div>
                 <div className="flex gap-2">
                     <button
@@ -226,38 +226,38 @@ export default function Invoices() {
                     </table>
                 </div>
 
-                <div className="sm:hidden grid grid-cols-1 divide-y divide-slate-100">
+                <div className="sm:hidden grid grid-cols-1 divide-y divide-slate-100 dark:divide-slate-700">
                     {filteredInvoices.map((inv) => (
                         <div
                             key={inv.id}
                             onClick={() => setSelectedInvoice(inv)}
-                            className="p-4 bg-white active:bg-slate-50 transition-colors flex flex-col gap-3"
+                            className="p-4 bg-white dark:bg-slate-800 active:bg-slate-50 dark:active:bg-slate-700/50 transition-colors flex flex-col gap-3"
                         >
                             <div className="flex justify-between items-start">
                                 <div className="space-y-1">
-                                    <span className="font-mono font-bold text-slate-900">{inv.invoiceNo}</span>
-                                    <p className="text-[11px] text-slate-500">
+                                    <span className="font-mono font-bold text-slate-900 dark:text-white">{inv.invoiceNo}</span>
+                                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
                                         {inv.createdAt?.seconds ? format(new Date(inv.createdAt.seconds * 1000), 'dd MMM yyyy') : '-'}
                                     </p>
                                 </div>
                                 <div className="text-right">
-                                    <div className="text-sm font-black text-blue-600">₹{(Number(inv.totalAmount) || 0).toFixed(0)}</div>
-                                    <div className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">Basic: ₹{(Number(inv.subtotal) || 0).toFixed(0)}</div>
+                                    <div className="text-sm font-black text-blue-600 dark:text-blue-400">₹{(Number(inv.totalAmount) || 0).toFixed(0)}</div>
+                                    <div className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-tighter">Basic: ₹{(Number(inv.subtotal) || 0).toFixed(0)}</div>
                                 </div>
                             </div>
 
                             <div className="flex justify-between items-center">
-                                <div className="text-sm font-medium text-slate-700 truncate max-w-[180px]">
+                                <div className="text-sm font-medium text-slate-700 dark:text-slate-300 truncate max-w-[180px]">
                                     {inv.customerName}
                                 </div>
-                                <span className="flex items-center gap-1 text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded uppercase tracking-tighter">
-                                    <MapPin className="h-3 w-3" /> {inv.fromLocation || '-'}
+                                <span className="flex items-center gap-1 text-[10px] font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-900 px-2 py-0.5 rounded uppercase tracking-tighter">
+                                    <MapPin className="h-3 w-3 text-blue-500" /> {inv.fromLocation || '-'}
                                 </span>
                             </div>
                         </div>
                     ))}
                     {filteredInvoices.length === 0 && (
-                        <div className="p-8 text-center text-slate-400 text-sm">
+                        <div className="p-8 text-center text-slate-400 dark:text-slate-500 text-sm">
                             No invoices found.
                         </div>
                     )}
