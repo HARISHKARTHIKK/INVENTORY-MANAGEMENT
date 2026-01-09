@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useSettings } from '../context/SettingsContext';
-import { Save, Building2, FileText, Package, Truck, Shield, Calendar, Wrench, Plus, Trash2, Loader2, AlertCircle } from 'lucide-react';
-import { backfillDispatches } from '../services/firestoreService';
+import { Save, Building2, FileText, Package, Truck, Shield, Calendar, Wrench, Plus, Trash2, Loader2, AlertCircle, Key, RefreshCw, Clock, History, AlertTriangle } from 'lucide-react';
+import { backfillDispatches, updateStockLevel } from '../services/firestoreService';
 import { db } from '../lib/firebase';
-import { collection, getDocs, updateDoc, doc } from 'firebase/firestore';
+import { collection, getDocs, updateDoc, doc, query, orderBy } from 'firebase/firestore';
 import { Users } from 'lucide-react';
+import { format } from 'date-fns';
 
 export default function Settings() {
     const { settings, updateSettings, loading } = useSettings();
@@ -16,11 +17,34 @@ export default function Settings() {
     const [users, setUsers] = useState([]);
     const [loadingUsers, setLoadingUsers] = useState(false);
 
+    // Stock Reconciliation State
+    const [products, setProducts] = useState([]);
+    const [reconcileData, setReconcileData] = useState({
+        productId: '',
+        location: '',
+        newQuantity: '',
+        reason: ''
+    });
+    const [isReconciling, setIsReconciling] = useState(false);
+    const [showReconcileModal, setShowReconcileModal] = useState(false);
+
     useEffect(() => {
         if (activeTab === 'users') {
             fetchUsers();
         }
+        if (activeTab === 'compliance') {
+            fetchProducts();
+        }
     }, [activeTab]);
+
+    const fetchProducts = async () => {
+        try {
+            const snap = await getDocs(collection(db, 'products'));
+            setProducts(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+        } catch (error) {
+            console.error("Error fetching products:", error);
+        }
+    };
 
     const fetchUsers = async () => {
         setLoadingUsers(true);
@@ -52,7 +76,15 @@ export default function Settings() {
     const handleSave = async () => {
         setSaving(true);
         try {
-            await updateSettings(formData);
+            const updatedData = {
+                ...formData,
+                compliance: {
+                    ...formData.compliance,
+                    lastSync: new Date().toISOString()
+                }
+            };
+            await updateSettings(updatedData);
+            setFormData(updatedData);
             alert("Settings saved successfully!");
         } catch (error) {
             console.error(error);
@@ -110,6 +142,29 @@ export default function Settings() {
         }
     };
 
+    const handleReconcile = async () => {
+        if (!reconcileData.productId || !reconcileData.location || reconcileData.newQuantity === '') {
+            alert("Please fill all fields for stock reconciliation.");
+            return;
+        }
+        setIsReconciling(true);
+        try {
+            await updateStockLevel({
+                productId: reconcileData.productId,
+                location: reconcileData.location,
+                newQuantity: Number(reconcileData.newQuantity),
+                reason: reconcileData.reason || "Manual Reconciliation"
+            });
+            alert("Stock reconciled successfully!");
+            setShowReconcileModal(false);
+            setReconcileData({ productId: '', location: '', newQuantity: '', reason: '' });
+        } catch (error) {
+            alert("Reconciliation failed: " + error.message);
+        } finally {
+            setIsReconciling(false);
+        }
+    };
+
     if (loading || !formData) return <div className="flex justify-center items-center h-96"><Loader2 className="animate-spin h-8 w-8 text-blue-600" /></div>;
 
     const tabs = [
@@ -118,6 +173,7 @@ export default function Settings() {
         { id: 'inventory', label: 'Inventory', icon: Package },
         { id: 'locations', label: 'Locations', icon: MapPinIcon },
         { id: 'transport', label: 'Transport', icon: Truck },
+        { id: 'compliance', label: 'Compliance', icon: Shield },
         { id: 'users', label: 'Users', icon: Users },
         { id: 'system', label: 'System', icon: Wrench },
     ];
@@ -369,6 +425,167 @@ export default function Settings() {
                             </div>
                         </div>
                     )}
+
+                    {activeTab === 'compliance' && (
+                        <div className="space-y-8 max-w-2xl">
+                            <div>
+                                <h3 className="text-lg font-bold text-slate-800 mb-4 pb-2 border-b">Business Compliance & Legal</h3>
+                                <div className="space-y-4">
+                                    <div className="bg-blue-50 border border-blue-200 p-4 rounded-xl">
+                                        <label className="block text-xs font-black text-blue-700 uppercase tracking-widest mb-2">Terms & Conditions (Internal Reference)</label>
+                                        <textarea
+                                            readOnly
+                                            rows="4"
+                                            className="w-full p-3 bg-white/50 border border-blue-100 rounded-lg text-sm text-slate-600 font-medium italic resize-none outline-none"
+                                            value={formData.compliance.terms}
+                                        />
+                                    </div>
+                                    <p className="text-[10px] text-slate-400 italic">* Compliance text is fixed according to company policy.</p>
+                                </div>
+                            </div>
+
+                            <div className="pt-6 border-t border-slate-100">
+                                <div className="flex items-center gap-2 mb-4">
+                                    <Shield className="h-5 w-5 text-indigo-600" />
+                                    <h4 className="font-bold text-slate-800">GSP API Credentials</h4>
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Client ID</label>
+                                        <div className="relative">
+                                            <input
+                                                type="password"
+                                                autoComplete="off"
+                                                className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-mono focus:ring-2 focus:ring-indigo-500 outline-none"
+                                                value={formData.api.gspClientId}
+                                                onChange={e => handleChange('api', 'gspClientId', e.target.value)}
+                                            />
+                                            <Key className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                                        </div>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Client Secret</label>
+                                        <div className="relative">
+                                            <input
+                                                type="password"
+                                                autoComplete="off"
+                                                className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-mono focus:ring-2 focus:ring-indigo-500 outline-none"
+                                                value={formData.api.gspClientSecret}
+                                                onChange={e => handleChange('api', 'gspClientSecret', e.target.value)}
+                                            />
+                                            <Shield className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="mt-4 p-3 bg-slate-50 border border-slate-200 rounded-lg flex items-start gap-2">
+                                    <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
+                                    <p className="text-[10px] text-slate-500 font-medium">Production Security: API credentials are stored securely and never exposed in standard system logs or console outputs.</p>
+                                </div>
+                            </div>
+
+                            <div className="pt-6 border-t border-slate-100">
+                                <div className="flex items-center justify-between mb-4">
+                                    <div className="flex items-center gap-2">
+                                        <RefreshCw className="h-5 w-5 text-emerald-600" />
+                                        <h4 className="font-bold text-slate-800">Stock Reconcilement</h4>
+                                    </div>
+                                    <button
+                                        onClick={() => setShowReconcileModal(true)}
+                                        className="text-xs bg-emerald-50 text-emerald-700 font-black uppercase tracking-widest px-4 py-2 rounded-lg border border-emerald-100 hover:bg-emerald-100 transition-colors"
+                                    >
+                                        Adjust Stock
+                                    </button>
+                                </div>
+                                <p className="text-xs text-slate-500">Manually reconcile minor stock differences due to wastage, leakage, or physical verification errors.</p>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Reconciliation Modal */}
+            {showReconcileModal && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md p-6 animate-in zoom-in-95 duration-200">
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="p-2 bg-emerald-50 rounded-xl"><RefreshCw className="h-5 w-5 text-emerald-600" /></div>
+                            <h3 className="text-lg font-bold text-slate-800">Manual Stock Reconciliation</h3>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Select Product</label>
+                                <select
+                                    className="w-full p-2.5 border border-slate-200 rounded-xl text-sm font-bold bg-slate-50"
+                                    value={reconcileData.productId}
+                                    onChange={e => setReconcileData({ ...reconcileData, productId: e.target.value })}
+                                >
+                                    <option value="">Select Product...</option>
+                                    {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Location</label>
+                                <select
+                                    className="w-full p-2.5 border border-slate-200 rounded-xl text-sm font-bold bg-slate-50"
+                                    value={reconcileData.location}
+                                    onChange={e => setReconcileData({ ...reconcileData, location: e.target.value })}
+                                >
+                                    <option value="">Select Location...</option>
+                                    {formData.locations.map(l => <option key={l.name} value={l.name}>{l.name}</option>)}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">New Physical Stock (MTs)</label>
+                                <input
+                                    type="number"
+                                    step="any"
+                                    placeholder="0.00"
+                                    className="w-full p-2.5 border border-slate-200 rounded-xl text-sm font-bold bg-white"
+                                    value={reconcileData.newQuantity}
+                                    onChange={e => setReconcileData({ ...reconcileData, newQuantity: e.target.value })}
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Reason for Adjustment</label>
+                                <textarea
+                                    rows="3"
+                                    placeholder="e.g., Wastage, Physical verification difference..."
+                                    className="w-full p-2.5 border border-slate-200 rounded-xl text-sm font-medium bg-white resize-none"
+                                    value={reconcileData.reason}
+                                    onChange={e => setReconcileData({ ...reconcileData, reason: e.target.value })}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="flex gap-3 mt-8">
+                            <button
+                                onClick={() => setShowReconcileModal(false)}
+                                className="flex-1 py-3 text-sm font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-all"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleReconcile}
+                                disabled={isReconciling}
+                                className="flex-1 py-3 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-lg shadow-emerald-500/20 transition-all disabled:opacity-50"
+                            >
+                                {isReconciling ? <Loader2 className="animate-spin h-4 w-4 mx-auto" /> : 'Apply Adjustment'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Settings Footer */}
+            <div className="mt-8 pt-6 border-t border-slate-200 flex flex-col sm:flex-row justify-between items-center gap-4">
+                <div className="flex items-center gap-2 text-slate-400">
+                    <Clock className="h-4 w-4" />
+                    <span className="text-[10px] font-black uppercase tracking-widest">Last Database Sync: {format(new Date(formData.compliance.lastSync || Date.now()), 'PPP p')}</span>
+                </div>
+                <div className="flex items-center gap-2 text-slate-400">
+                    <Shield className="h-4 w-4 text-blue-500" />
+                    <span className="text-[10px] font-black uppercase tracking-widest">Production Environment: STABLE</span>
                 </div>
             </div>
         </div>

@@ -43,6 +43,14 @@ export const SettingsProvider = ({ children }) => {
             enable: true,
             required: false,
             modes: ['By Road', 'By Sea', 'By Air']
+        },
+        compliance: {
+            terms: 'MAB CHEM is a tool for data management. Users are responsible for verifying GST, HSN, and Quantity before final e-Way Bill/Invoice submission.',
+            lastSync: new Date().toISOString()
+        },
+        api: {
+            gspClientId: '',
+            gspClientSecret: ''
         }
     };
 
@@ -54,6 +62,8 @@ export const SettingsProvider = ({ children }) => {
         merged.invoice = { ...defaultSettings.invoice, ...s.invoice };
         merged.inventory = { ...defaultSettings.inventory, ...s.inventory };
         merged.transport = { ...defaultSettings.transport, ...s.transport };
+        merged.compliance = { ...defaultSettings.compliance, ...s.compliance };
+        merged.api = { ...defaultSettings.api, ...s.api };
 
         // Ensure locations have prefix/nextNumber
         if (Array.isArray(merged.locations)) {

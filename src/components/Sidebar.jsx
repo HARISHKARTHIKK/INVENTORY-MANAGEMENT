@@ -1,8 +1,9 @@
-import { LayoutDashboard, Package, ClipboardList, FileText, Users, BarChart3, Settings, Truck, LogOut, X, TrendingUp, CreditCard, Box } from 'lucide-react';
+import { LayoutDashboard, Package, ClipboardList, FileText, Users, BarChart3, Settings, Truck, LogOut, X, TrendingUp, CreditCard, Box, Sun, Moon } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { cn } from '../lib/utils';
 import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
+import { useTheme } from '../context/ThemeContext';
 
 
 const navigation = [
@@ -23,6 +24,7 @@ const navigation = [
 export default function Sidebar({ isOpen, onClose }) {
     const { settings } = useSettings();
     const { userRole, logout } = useAuth();
+    const { isDarkMode, toggleTheme } = useTheme();
 
 
     const filteredNav = navigation.filter(item => {
@@ -41,7 +43,20 @@ export default function Sidebar({ isOpen, onClose }) {
             isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         )}>
             <div className="flex h-16 items-center justify-between px-6 border-b border-slate-800 dark:border-slate-800 bg-slate-900 dark:bg-slate-950">
-                <h1 className="text-xl font-bold tracking-wider text-blue-400">MAB<span className="text-white"> CHEM</span></h1>
+                <div className="flex items-center gap-3">
+                    <h1 className="text-xl font-bold tracking-wider text-blue-400">MAB<span className="text-white"> CHEM</span></h1>
+                    <button
+                        onClick={toggleTheme}
+                        className="p-1.5 rounded-lg bg-slate-800/50 border border-slate-700 hover:bg-slate-800 hover:border-slate-600 transition-all duration-300 group/theme"
+                        title={isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+                    >
+                        {isDarkMode ? (
+                            <Sun className="h-4 w-4 text-amber-400 group-hover/theme:rotate-90 transition-transform duration-500" />
+                        ) : (
+                            <Moon className="h-4 w-4 text-blue-400 group-hover/theme:-rotate-12 transition-transform duration-500" />
+                        )}
+                    </button>
+                </div>
                 <button
                     onClick={onClose}
                     className="lg:hidden p-2 -mr-2 text-slate-400 hover:text-white transition-colors"
