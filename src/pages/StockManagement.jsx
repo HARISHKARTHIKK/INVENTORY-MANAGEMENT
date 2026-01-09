@@ -440,6 +440,7 @@ function ImportForm({ products, suppliers, transporters, settings, locations, on
         location: locations[0] || 'Warehouse A',
         vehicleNumber: '',
         transporterId: '',
+        transporterGSTIN: '',
         transportMode: 'By Road',
         transportCost: '',
         transportAdvance: '',
@@ -605,13 +606,26 @@ function ImportForm({ products, suppliers, transporters, settings, locations, on
                                     <select
                                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-indigo-500 outline-none cursor-pointer"
                                         value={formData.transporterId}
-                                        onChange={(e) => setFormData({ ...formData, transporterId: e.target.value })}
+                                        onChange={(e) => {
+                                            const tId = e.target.value;
+                                            const selectedT = transporters.find(t => t.id === tId);
+                                            setFormData({
+                                                ...formData,
+                                                transporterId: tId,
+                                                transporterGSTIN: selectedT?.gstin || ''
+                                            });
+                                        }}
                                     >
                                         <option value="">Select Transporter...</option>
                                         {transporters.map(t => (
-                                            <option key={t.id} value={t.id}>{t.name}</option>
+                                            <option key={t.id} value={t.id}>{t.name} {t.gstin ? `(${t.gstin})` : '(No GSTIN)'}</option>
                                         ))}
                                     </select>
+                                    {formData.transporterId && !formData.transporterGSTIN && (
+                                        <p className="mt-1 text-[9px] text-amber-600 font-bold flex items-center gap-1 leading-tight">
+                                            <AlertTriangle className="h-2.5 w-2.5" /> Warning: Transporter missing GSTIN.
+                                        </p>
+                                    )}
                                 </div>
                                 <div>
                                     <label className="block text-[10px] font-black text-slate-400 uppercase mb-2 ml-1">Vehicle / Truck Number</label>
@@ -783,6 +797,7 @@ function LocalPurchaseForm({ products, suppliers, transporters, settings, locati
         location: locations[0] || 'Warehouse A',
         vehicleNumber: '',
         transporterId: '',
+        transporterGSTIN: '',
         transportMode: 'By Road',
         transportCost: '',
         transportAdvance: '',
@@ -938,13 +953,26 @@ function LocalPurchaseForm({ products, suppliers, transporters, settings, locati
                                     <select
                                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-emerald-500 outline-none cursor-pointer"
                                         value={formData.transporterId}
-                                        onChange={(e) => setFormData({ ...formData, transporterId: e.target.value })}
+                                        onChange={(e) => {
+                                            const tId = e.target.value;
+                                            const selectedT = transporters.find(t => t.id === tId);
+                                            setFormData({
+                                                ...formData,
+                                                transporterId: tId,
+                                                transporterGSTIN: selectedT?.gstin || ''
+                                            });
+                                        }}
                                     >
                                         <option value="">Select Transporter...</option>
                                         {transporters.map(t => (
-                                            <option key={t.id} value={t.id}>{t.name}</option>
+                                            <option key={t.id} value={t.id}>{t.name} {t.gstin ? `(${t.gstin})` : '(No GSTIN)'}</option>
                                         ))}
                                     </select>
+                                    {formData.transporterId && !formData.transporterGSTIN && (
+                                        <p className="mt-1 text-[9px] text-amber-600 font-bold flex items-center gap-1 leading-tight">
+                                            <AlertTriangle className="h-2.5 w-2.5" /> Warning: Transporter missing GSTIN.
+                                        </p>
+                                    )}
                                 </div>
                                 <div>
                                     <label className="block text-[10px] font-black text-slate-400 uppercase mb-2 ml-1">Vehicle / Truck Number</label>

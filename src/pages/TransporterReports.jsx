@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { db } from '../lib/firebase';
 import { collection, onSnapshot, query, orderBy, where } from 'firebase/firestore';
-import { Loader2, FileText, Calendar, Truck, TrendingUp, Download } from 'lucide-react';
+import { Loader2, FileText, Calendar, Truck, TrendingUp, Download, AlertTriangle, FileJson } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, isWithinInterval, parseISO } from 'date-fns';
 import * as XLSX from 'xlsx';
 
@@ -123,12 +123,74 @@ export default function TransporterReports() {
 
         return {
             name: transporter.name,
+            gstin: transporter.gstin,
             count,
             sumPaid,
             sumToPay,
             totalDocValue
         };
     }).filter(data => data.count > 0);
+
+    const handleJsonExport = (rec) => {
+        const transporter = transporters.find(t => t.id === rec.transporterId);
+        const gstin = rec.transporterGSTIN || transporter?.gstin;
+
+        if (!gstin) {
+            alert(`Missing GSTIN for ${rec.transporterName}. e-Way bill cannot be generated without a Transporter ID.`);
+            return;
+        }
+
+        // NIC e-Way Bill JSON Format (Basic Schema)
+        const eWayBillData = {
+            version: "1.0.0421",
+            billLists: [
+                {
+                    userGstin: "YOUR_COMPANY_GSTIN", // Should ideally come from settings
+                    supplyType: rec.type === 'Dispatch' ? "O" : "I",
+                    subSupplyType: "1",
+                    docType: "INV",
+                    docNo: rec.docNo,
+                    docDate: format(rec.docDate, 'dd/MM/yyyy'),
+                    fromGstin: "YOUR_COMPANY_GSTIN", // Placeholder
+                    fromTrdName: "YOUR_COMPANY_NAME", // Placeholder
+                    toGstin: rec.partyName === 'Local Purchase' ? "YOUR_COMPANY_GSTIN" : "CUSTOMER_GSTIN", // Placeholder
+                    toTrdName: rec.partyName,
+                    totalValue: rec.docValue,
+                    cgstValue: (rec.docValue * 0.09), // Placeholder 18% split
+                    sgstValue: (rec.docValue * 0.09),
+                    igstValue: 0,
+                    totInvValue: rec.docValue * 1.18,
+                    transporterId: gstin,
+                    transMode: "1",
+                    transDistance: "0",
+                    transporterName: rec.transporterName,
+                    vehicleNo: rec.vehicleNumber || "",
+                    vehicleType: "R",
+                    itemList: [
+                        {
+                            productName: "Goods",
+                            productDesc: "Goods",
+                            hsnCode: "0000",
+                            quantity: 1,
+                            qtyUnit: "MTS",
+                            taxableAmount: rec.docValue,
+                            cgstRate: 9,
+                            sgstRate: 9,
+                            igstRate: 0,
+                        }
+                    ]
+                }
+            ]
+        };
+
+        const blob = new Blob([JSON.stringify(eWayBillData, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `eWayBill_${rec.docNo}.json`;
+        link.click();
+        URL.revokeObjectURL(url);
+    };
 
     const handleExcelExport = () => {
         const data = filteredRecords.map(rec => {
@@ -247,7 +309,10 @@ export default function TransporterReports() {
                         <tbody className="divide-y divide-slate-100">
                             {reportData.map((data, idx) => (
                                 <tr key={idx} className="hover:bg-slate-50/80 transition-colors">
-                                    <td className="px-6 py-4 font-medium text-slate-900">{data.name}</td>
+                                    <td className="px-6 py-4">
+                                        <div className="font-medium text-slate-900">{data.name}</div>
+                                        <div className="text-[10px] font-mono text-slate-400 font-bold">{data.gstin || 'NO GSTIN'}</div>
+                                    </td>
                                     <td className="px-6 py-4">{data.count}</td>
                                     <td className="px-6 py-4 text-emerald-600 font-bold">₹{data.totalDocValue.toLocaleString()}</td>
                                     <td className="px-6 py-4 text-indigo-600 font-medium">₹{data.sumPaid.toLocaleString()}</td>
@@ -274,9 +339,10 @@ export default function TransporterReports() {
                                 <th className="px-6 py-4">Party (Supplier/Customer)</th>
                                 <th className="px-6 py-4">Location</th>
                                 <th className="px-6 py-4">Transporter</th>
-                                <th className="px-6 py-4 text-right">Document Value</th>
+                                <th className="px-6 py-4 text-right">Doc Value</th>
                                 <th className="px-6 py-4 text-right">Trans. Cost</th>
-                                <th className="px-6 py-4">Trans. Payment</th>
+                                <th className="px-6 py-4">Status</th>
+                                <th className="px-6 py-4 text-center">Export</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
@@ -292,16 +358,34 @@ export default function TransporterReports() {
                                     </td>
                                     <td className="px-6 py-4 font-medium text-slate-900">{rec.partyName}</td>
                                     <td className="px-6 py-4">{rec.locationName}</td>
-                                    <td className="px-6 py-4">{rec.transporterName || '-'}</td>
-                                    <td className="px-6 py-4 text-right font-bold text-emerald-600">₹{rec.docValue.toLocaleString()}</td>
-                                    <td className="px-6 py-4 text-right">{rec.transportationCost ? `₹${rec.transportationCost.toLocaleString()}` : '-'}</td>
                                     <td className="px-6 py-4">
-                                        <span className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase ${(rec.type === 'Dispatch' && rec.transportPaymentType === 'To Pay') ||
-                                                (rec.type !== 'Dispatch' && rec.transportPaymentType === 'Payable')
-                                                ? 'bg-orange-50 text-orange-600' : 'bg-indigo-50 text-indigo-600'
+                                        <div className="font-medium text-slate-900">{rec.transporterName || '-'}</div>
+                                        <div className="text-[9px] font-mono text-slate-400">
+                                            {rec.transporterGSTIN || transporters.find(t => t.id === rec.transporterId)?.gstin || (
+                                                <span className="text-amber-500 font-bold flex items-center gap-1">
+                                                    <AlertTriangle className="h-2 w-2" /> GSTIN MISSING
+                                                </span>
+                                            )}
+                                        </div>
+                                    </td>
+                                    <td className="px-6 py-4 text-right font-bold text-slate-900">₹{rec.docValue.toLocaleString()}</td>
+                                    <td className="px-6 py-4 text-right font-medium text-indigo-600">{rec.transportationCost ? `₹${rec.transportationCost.toLocaleString()}` : '-'}</td>
+                                    <td className="px-6 py-4">
+                                        <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${(rec.type === 'Dispatch' && rec.transportPaymentType === 'To Pay') ||
+                                            (rec.type !== 'Dispatch' && rec.transportPaymentType === 'Payable')
+                                            ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'
                                             }`}>
-                                            {rec.transportPaymentType || '-'}
+                                            {rec.transportPaymentType || 'Paid'}
                                         </span>
+                                    </td>
+                                    <td className="px-6 py-4 text-center">
+                                        <button
+                                            onClick={() => handleJsonExport(rec)}
+                                            title="Export JSON for e-Way Bill"
+                                            className="p-1.5 hover:bg-indigo-50 text-indigo-600 rounded-lg transition-colors border border-transparent hover:border-indigo-100"
+                                        >
+                                            <FileJson className="h-4 w-4" />
+                                        </button>
                                     </td>
                                 </tr>
                             ))}

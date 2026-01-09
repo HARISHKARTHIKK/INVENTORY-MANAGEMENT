@@ -13,7 +13,7 @@ export default function Transporters() {
 
     // Form State
     const [formData, setFormData] = useState({
-        name: '', phone: ''
+        name: '', phone: '', gstin: ''
     });
 
     useEffect(() => {
@@ -38,11 +38,12 @@ export default function Transporters() {
             setEditingTransporter(transporter);
             setFormData({
                 name: transporter.name,
-                phone: transporter.phone || ''
+                phone: transporter.phone || '',
+                gstin: transporter.gstin || ''
             });
         } else {
             setEditingTransporter(null);
-            setFormData({ name: '', phone: '' });
+            setFormData({ name: '', phone: '', gstin: '' });
         }
         setIsModalOpen(true);
     };
@@ -54,11 +55,24 @@ export default function Transporters() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+
+        // GSTIN Validation (15 digits uppercase alphanumeric)
+        const gstinRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
+        if (formData.gstin && !gstinRegex.test(formData.gstin)) {
+            alert("Please enter a valid 15-digit GSTIN format.");
+            return;
+        }
+
+        if (!formData.gstin) {
+            alert("GST Number / Transporter ID is mandatory.");
+            return;
+        }
+
         try {
             if (editingTransporter) {
-                await updateTransporter(editingTransporter.id, formData);
+                await updateTransporter(editingTransporter.id, { ...formData, gstin: formData.gstin.toUpperCase() });
             } else {
-                await addTransporter(formData);
+                await addTransporter({ ...formData, gstin: formData.gstin.toUpperCase() });
             }
             handleCloseModal();
         } catch (error) {
@@ -78,7 +92,8 @@ export default function Transporters() {
 
     const filteredTransporters = transporters.filter(t =>
         t.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        t.phone?.includes(searchTerm)
+        t.phone?.includes(searchTerm) ||
+        t.gstin?.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     if (loading) return <div className="flex h-96 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-blue-600" /></div>;
@@ -108,7 +123,7 @@ export default function Transporters() {
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                         <input
                             type="text"
-                            placeholder="Search by name, phone..."
+                            placeholder="Search by name, phone, GSTIN..."
                             className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all shadow-sm"
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
@@ -121,6 +136,7 @@ export default function Transporters() {
                         <thead className="bg-slate-50 text-slate-700 font-semibold uppercase text-xs tracking-wider">
                             <tr>
                                 <th className="px-6 py-4">Transporter Name</th>
+                                <th className="px-6 py-4">GSTIN / Trans. ID</th>
                                 <th className="px-6 py-4">Phone Number</th>
                                 <th className="px-6 py-4 text-right">Actions</th>
                             </tr>
@@ -130,6 +146,9 @@ export default function Transporters() {
                                 <tr key={transporter.id} className="hover:bg-slate-50/80 transition-colors group">
                                     <td className="px-6 py-4">
                                         <div className="font-medium text-slate-900">{transporter.name}</div>
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        <div className="font-mono text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded inline-block">{transporter.gstin || 'MISSING'}</div>
                                     </td>
                                     <td className="px-6 py-4">
                                         <div className="flex items-center gap-2 text-slate-600">
@@ -180,6 +199,17 @@ export default function Transporters() {
                                         placeholder="e.g., Express Logistics"
                                         value={formData.name}
                                         onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                    />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-sm font-medium text-slate-700">GST Number / Transporter ID</label>
+                                    <input
+                                        type="text"
+                                        required
+                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all uppercase font-mono"
+                                        placeholder="15-digit GSTIN"
+                                        value={formData.gstin}
+                                        onChange={(e) => setFormData({ ...formData, gstin: e.target.value.toUpperCase() })}
                                     />
                                 </div>
                                 <div className="space-y-1.5">

@@ -286,6 +286,7 @@ function CreateInvoice({ onCancel, onSuccess }) {
     // New Logistics State
     const [transporters, setTransporters] = useState([]);
     const [transporterId, setTransporterId] = useState('');
+    const [transporterGSTIN, setTransporterGSTIN] = useState('');
     const [vehicleNumber, setVehicleNumber] = useState('');
     const [paymentType, setPaymentType] = useState('Payable');
 
@@ -470,6 +471,7 @@ function CreateInvoice({ onCancel, onSuccess }) {
                 },
                 transporterId: transporterId,
                 transporterName: transporters.find(t => t.id === transporterId)?.name || '',
+                transporterGSTIN: transporterGSTIN,
                 vehicleNumber: vehicleNumber,
                 paymentType: paymentType,
                 transportationCost: Number(transport.amount) || 0,
@@ -685,13 +687,23 @@ function CreateInvoice({ onCancel, onSuccess }) {
                                     <select
                                         className="w-full bg-slate-50 border-slate-200 rounded-xl px-3 py-2 text-xs font-bold focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer"
                                         value={transporterId}
-                                        onChange={(e) => setTransporterId(e.target.value)}
+                                        onChange={(e) => {
+                                            const tId = e.target.value;
+                                            setTransporterId(tId);
+                                            const selectedT = transporters.find(t => t.id === tId);
+                                            setTransporterGSTIN(selectedT?.gstin || '');
+                                        }}
                                     >
                                         <option value="">Select Transporter...</option>
                                         {transporters.map(t => (
-                                            <option key={t.id} value={t.id}>{t.name}</option>
+                                            <option key={t.id} value={t.id}>{t.name} {t.gstin ? `(${t.gstin})` : '(No GSTIN)'}</option>
                                         ))}
                                     </select>
+                                    {transporterId && !transporterGSTIN && (
+                                        <p className="mt-1 text-[9px] text-amber-600 font-bold flex items-center gap-1 leading-tight">
+                                            <AlertTriangle className="h-2.5 w-2.5" /> Warning: Transporter missing GSTIN. e-Way Bill might fail.
+                                        </p>
+                                    )}
                                 </div>
                                 <div>
                                     <label className="block text-[9px] font-black text-slate-400 uppercase mb-1.5">Vehicle / Truck Number</label>

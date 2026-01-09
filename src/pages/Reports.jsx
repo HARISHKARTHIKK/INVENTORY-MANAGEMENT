@@ -115,8 +115,9 @@ export default function Reports() {
                                 'Quantity (mts)': Number(item.quantity) || 0,
                                 'Price': Number(item.price) || 0,
                                 'Customer GSTIN': cust.gstin || '',
-                                'Transport Amount': inv.transport?.amount || 0,
-                                'Vehicle Number': inv.transport?.vehicleNumber || '-',
+                                'Transporter GSTIN': inv.transporterGSTIN || '',
+                                'Transport Amount': inv.transport?.amount || inv.transportationCost || 0,
+                                'Vehicle Number': inv.transport?.vehicleNumber || inv.vehicleNumber || '-',
                                 'Taxable Value': (Number(item.quantity) * Number(item.price)) || 0, // Approx line value
                                 'Invoice Total Amount': Number(inv.totalAmount) || 0
                             });
@@ -131,8 +132,9 @@ export default function Reports() {
                             'Quantity (mts)': 0,
                             'Price': 0,
                             'Customer GSTIN': cust.gstin || '',
-                            'Transport Amount': inv.transport?.amount || 0,
-                            'Vehicle Number': inv.transport?.vehicleNumber || '-',
+                            'Transporter GSTIN': inv.transporterGSTIN || '',
+                            'Transport Amount': inv.transport?.amount || inv.transportationCost || 0,
+                            'Vehicle Number': inv.transport?.vehicleNumber || inv.vehicleNumber || '-',
                             'Taxable Value': Number(inv.subtotal) || 0,
                             'Invoice Total Amount': Number(inv.totalAmount) || 0
                         });
