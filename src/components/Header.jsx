@@ -37,27 +37,14 @@ export default function Header({ onMenuClick }) {
             </div>
 
             <div className="flex items-center gap-2 md:gap-4">
-                {/* Theme Toggle */}
-                <button
-                    onClick={toggleTheme}
-                    className="p-2 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-all duration-300"
-                    title={isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-                >
-                    {isDarkMode ? (
-                        <Sun className="h-5 w-5 text-amber-400 animate-in zoom-in-50 duration-300" />
-                    ) : (
-                        <Moon className="h-5 w-5 text-blue-600 animate-in zoom-in-50 duration-300" />
-                    )}
-                </button>
-
                 <button className="p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full relative transition-colors">
                     <Bell className="h-5 w-5" />
                     <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-red-500 ring-2 ring-white"></span>
                 </button>
 
-                <div className="flex items-center gap-2 md:gap-3 border-l border-slate-200 pl-2 md:pl-4">
+                <div className="flex items-center gap-2 md:gap-3 border-l border-slate-200 dark:border-slate-800 pl-2 md:pl-4">
                     <div className="text-right hidden lg:block">
-                        <p className="text-sm font-medium text-slate-700">{currentUser?.email || 'Admin User'}</p>
+                        <p className="text-sm font-medium text-slate-700 dark:text-slate-200">{currentUser?.email || 'Admin User'}</p>
                         <p className="text-xs text-slate-500 capitalize">Administrator</p>
                     </div>
                     <div className="h-8 w-8 md:h-9 md:w-9 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20">
@@ -65,12 +52,27 @@ export default function Header({ onMenuClick }) {
                     </div>
                     <button
                         onClick={logout}
-                        className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                         title="Sign out"
                     >
                         <LogOut className="h-5 w-5" />
                     </button>
                 </div>
+
+                {/* Theme Toggle - Moved to Far Right */}
+                <button
+                    onClick={toggleTheme}
+                    className="p-2.5 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-all duration-300 border-l border-slate-200 dark:border-slate-800 ml-2"
+                    title={isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+                >
+                    <div className="relative h-5 w-5">
+                        {isDarkMode ? (
+                            <Sun className="h-5 w-5 text-amber-400 absolute inset-0 transition-all duration-500 rotate-0 scale-100" />
+                        ) : (
+                            <Moon className="h-5 w-5 text-blue-600 absolute inset-0 transition-all duration-500 rotate-0 scale-100" />
+                        )}
+                    </div>
+                </button>
             </div>
         </header>
     );
