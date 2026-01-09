@@ -578,7 +578,7 @@ function ImportForm({ products, suppliers, transporters, settings, locations, on
                             readOnly
                             tabIndex="-1"
                             placeholder="0.00"
-                            className="w-full px-4 py-2.5 bg-slate-100 border border-slate-200 rounded-xl outline-none font-black text-indigo-600 cursor-not-allowed"
+                            className="w-full px-4 py-2.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none font-black text-indigo-600 dark:text-indigo-400 cursor-not-allowed"
                             value={formData.quantity}
                         />
                     </div>
@@ -666,7 +666,7 @@ function ImportForm({ products, suppliers, transporters, settings, locations, on
                                         <input
                                             readOnly
                                             tabIndex="-1"
-                                            className="w-full bg-slate-100 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-black text-blue-600 cursor-not-allowed outline-none"
+                                            className="w-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm font-black text-blue-600 dark:text-blue-400 cursor-not-allowed outline-none"
                                             value={`₹${totals.balanceFreight.toLocaleString()}`}
                                         />
                                     </div>
@@ -756,7 +756,7 @@ function ImportForm({ products, suppliers, transporters, settings, locations, on
                                 <input
                                     readOnly
                                     tabIndex="-1"
-                                    className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl font-black text-xs text-slate-600 cursor-not-allowed outline-none"
+                                    className="w-full px-3 py-2 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-black text-xs text-slate-600 dark:text-slate-400 cursor-not-allowed outline-none"
                                     value={totals.balanceDue.toFixed(2)}
                                 />
                             </div>
@@ -770,7 +770,7 @@ function ImportForm({ products, suppliers, transporters, settings, locations, on
                         <input
                             readOnly
                             tabIndex="-1"
-                            className="bg-transparent border-none text-2xl font-black text-slate-900 outline-none cursor-not-allowed"
+                            className="bg-transparent border-none text-2xl font-black text-slate-900 dark:text-white outline-none cursor-not-allowed"
                             value={`${formData.currency} ${totals.totalPrice.toLocaleString()}`}
                         />
                     </div>
@@ -930,7 +930,7 @@ function LocalPurchaseForm({ products, suppliers, transporters, settings, locati
                             readOnly
                             tabIndex="-1"
                             placeholder="0.00"
-                            className="w-full px-4 py-2.5 bg-slate-100 border border-slate-200 rounded-xl outline-none font-black text-emerald-600 cursor-not-allowed"
+                            className="w-full px-4 py-2.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none font-black text-emerald-600 dark:text-emerald-400 cursor-not-allowed"
                             value={formData.quantity}
                         />
                     </div>
@@ -1013,7 +1013,7 @@ function LocalPurchaseForm({ products, suppliers, transporters, settings, locati
                                         <input
                                             readOnly
                                             tabIndex="-1"
-                                            className="w-full bg-slate-100 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-black text-blue-600 cursor-not-allowed outline-none"
+                                            className="w-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm font-black text-blue-600 dark:text-blue-400 cursor-not-allowed outline-none"
                                             value={`₹${totals.balanceFreight.toLocaleString()}`}
                                         />
                                     </div>
@@ -1103,7 +1103,7 @@ function LocalPurchaseForm({ products, suppliers, transporters, settings, locati
                                 <input
                                     readOnly
                                     tabIndex="-1"
-                                    className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl font-black text-xs text-slate-600 cursor-not-allowed outline-none"
+                                    className="w-full px-3 py-2 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-black text-xs text-slate-600 dark:text-slate-400 cursor-not-allowed outline-none"
                                     value={totals.balanceDue.toFixed(2)}
                                 />
                             </div>
@@ -1118,7 +1118,7 @@ function LocalPurchaseForm({ products, suppliers, transporters, settings, locati
                             <input
                                 readOnly
                                 tabIndex="-1"
-                                className="bg-transparent border-none text-2xl font-black text-slate-900 outline-none cursor-not-allowed"
+                                className="bg-transparent border-none text-2xl font-black text-slate-900 dark:text-white outline-none cursor-not-allowed"
                                 value={`INR ${totals.totalPrice.toLocaleString()}`}
                             />
                         </div>

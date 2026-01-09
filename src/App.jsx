@@ -14,7 +14,7 @@ import Settings from './pages/Settings';
 import Transporters from './pages/Transporters';
 import TransporterReports from './pages/TransporterReports';
 import Expenses from './pages/Expenses';
-import { StockManagement } from './pages/StockManagement';
+import StockManagement from './pages/StockManagement';
 import Suppliers from './pages/Suppliers';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 

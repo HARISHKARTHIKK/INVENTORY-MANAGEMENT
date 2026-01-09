@@ -634,7 +634,7 @@ function CreateInvoice({ onCancel, onSuccess }) {
                                                         type="text"
                                                         readOnly
                                                         tabIndex="-1"
-                                                        className="w-full bg-slate-100 border-none rounded-lg pl-2 pr-8 py-2 text-center text-sm font-black text-indigo-600 cursor-not-allowed outline-none"
+                                                        className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-lg pl-2 pr-8 py-2 text-center text-sm font-black text-indigo-600 dark:text-indigo-400 cursor-not-allowed outline-none"
                                                         value={line.qty}
                                                     />
                                                     <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-black text-slate-400">MTS</span>
@@ -653,7 +653,7 @@ function CreateInvoice({ onCancel, onSuccess }) {
                                                 <input
                                                     readOnly
                                                     tabIndex="-1"
-                                                    className="w-full bg-slate-100 border-none rounded-lg px-2 py-2 text-right text-sm font-black text-slate-900 cursor-not-allowed outline-none"
+                                                    className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-lg px-2 py-2 text-right text-sm font-black text-slate-900 dark:text-slate-100 cursor-not-allowed outline-none"
                                                     value={`₹ ${(Number(String(line.qty || 0).replace(/[^0-9.]/g, '')) * Number(String(line.price || 0).replace(/[^0-9.]/g, ''))).toLocaleString('en-IN', { minimumFractionDigits: 1 })}`}
                                                 />
                                             </td>
@@ -801,7 +801,7 @@ function CreateInvoice({ onCancel, onSuccess }) {
                                 <input
                                     readOnly
                                     tabIndex="-1"
-                                    className="w-32 bg-slate-50 border-none text-right text-lg font-bold text-slate-800 tracking-tighter cursor-not-allowed outline-none rounded-lg px-2 py-1"
+                                    className="w-32 bg-slate-50 dark:bg-slate-800 border-none text-right text-lg font-bold text-slate-800 dark:text-slate-200 tracking-tighter cursor-not-allowed outline-none rounded-lg px-2 py-1"
                                     value={`₹ ${linesTotal.toFixed(1)}`}
                                 />
                             </div>
@@ -811,7 +811,7 @@ function CreateInvoice({ onCancel, onSuccess }) {
                                     <input
                                         readOnly
                                         tabIndex="-1"
-                                        className="w-32 bg-blue-50 border-none text-right text-lg font-bold text-blue-600 tracking-tighter cursor-not-allowed outline-none rounded-lg px-2 py-1"
+                                        className="w-32 bg-blue-50 dark:bg-blue-900/30 border-none text-right text-lg font-bold text-blue-600 dark:text-blue-400 tracking-tighter cursor-not-allowed outline-none rounded-lg px-2 py-1"
                                         value={`+ ₹ ${Number(transport.amount).toFixed(1)}`}
                                     />
                                 </div>
@@ -821,16 +821,16 @@ function CreateInvoice({ onCancel, onSuccess }) {
                                 <input
                                     readOnly
                                     tabIndex="-1"
-                                    className="w-32 bg-amber-50 border-none text-right text-lg font-bold text-amber-600 tracking-tighter cursor-not-allowed outline-none rounded-lg px-2 py-1"
+                                    className="w-32 bg-amber-50 dark:bg-amber-900/30 border-none text-right text-lg font-bold text-amber-600 dark:text-amber-400 tracking-tighter cursor-not-allowed outline-none rounded-lg px-2 py-1"
                                     value={`+ ₹ ${tax.toFixed(1)}`}
                                 />
                             </div>
                             <div className="pt-4 flex flex-col gap-2">
                                 <span className="text-slate-400 text-[10px] font-black uppercase tracking-widest text-center">Grand Total</span>
-                                <div className="text-5xl font-black text-center text-slate-900 tracking-tighter whitespace-nowrap bg-slate-50 py-4 rounded-3xl border border-slate-100 cursor-not-allowed">
-                                    <span className="text-blue-600 text-2xl mr-1">₹</span>
+                                <div className="text-5xl font-black text-center text-slate-900 dark:text-white tracking-tighter whitespace-nowrap bg-slate-50 dark:bg-slate-800 py-4 rounded-3xl border border-slate-100 dark:border-slate-700 cursor-not-allowed">
+                                    <span className="text-blue-600 dark:text-blue-400 text-2xl mr-1">₹</span>
                                     {total.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                                    <span className="text-slate-300 text-xl font-light">.{total.toFixed(1).split('.')[1]}</span>
+                                    <span className="text-slate-300 dark:text-slate-500 text-xl font-light">.{total.toFixed(1).split('.')[1]}</span>
                                 </div>
                             </div>
                             <button

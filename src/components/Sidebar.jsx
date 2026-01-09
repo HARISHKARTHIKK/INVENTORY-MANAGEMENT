@@ -1,9 +1,9 @@
-import { LayoutDashboard, Package, ClipboardList, FileText, Users, BarChart3, Settings, Truck, LogOut, X, TrendingUp, CreditCard, Box, Sun, Moon } from 'lucide-react';
+import { LayoutDashboard, Package, ClipboardList, FileText, Users, BarChart3, Settings, Truck, LogOut, X, TrendingUp, CreditCard, Box } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { cn } from '../lib/utils';
 import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
-import { useTheme } from '../context/ThemeContext';
+
 
 const navigation = [
     { name: 'Dashboard', href: '/', icon: LayoutDashboard },
@@ -23,7 +23,7 @@ const navigation = [
 export default function Sidebar({ isOpen, onClose }) {
     const { settings } = useSettings();
     const { userRole, logout } = useAuth();
-    const { isDarkMode, toggleTheme } = useTheme();
+
 
     const filteredNav = navigation.filter(item => {
         if (item.name === 'Dispatch') {
@@ -72,22 +72,6 @@ export default function Sidebar({ isOpen, onClose }) {
                 ))}
             </nav>
             <div className="border-t border-slate-800 p-4 bg-slate-900 dark:bg-slate-950 space-y-2">
-                <button
-                    onClick={toggleTheme}
-                    className="flex items-center gap-3 px-2 w-full text-left hover:bg-slate-800 dark:hover:bg-slate-900 p-2 rounded-lg transition-colors group"
-                >
-                    <div className={cn(
-                        "h-8 w-8 rounded-full flex items-center justify-center transition-all",
-                        isDarkMode ? "bg-yellow-500/10 text-yellow-500 ring-1 ring-yellow-500/50" : "bg-blue-500/10 text-blue-400 ring-1 ring-blue-500/50"
-                    )}>
-                        {isDarkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-                    </div>
-                    <div className="text-xs text-slate-400 group-hover:text-slate-200">
-                        <p className="font-medium text-white">{isDarkMode ? 'Light Mode' : 'Dark Mode'}</p>
-                        <p className="">Switch Theme</p>
-                    </div>
-                </button>
-
                 <button
                     onClick={() => logout()}
                     className="flex items-center gap-3 px-2 w-full text-left hover:bg-slate-800 dark:hover:bg-slate-900 p-2 rounded-lg transition-colors group"
