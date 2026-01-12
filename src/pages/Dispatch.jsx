@@ -148,8 +148,8 @@ export default function Dispatch() {
                                     </td>
                                     <td className="px-6 py-4">
                                         <div className="text-xs space-y-1">
-                                            {disp.transport?.vehicleNumber ? (
-                                                <div className="font-semibold text-slate-700">{disp.transport.vehicleNumber}</div>
+                                            {(disp.vehicleNumber || disp.transport?.vehicleNumber) ? (
+                                                <div className="font-semibold text-slate-700">{disp.vehicleNumber || disp.transport.vehicleNumber}</div>
                                             ) : (
                                                 <span className="text-slate-400 italic">No Vehicle Info</span>
                                             )}
@@ -186,7 +186,7 @@ export default function Dispatch() {
                                 <div className="text-right">
                                     <div className="text-[10px] font-bold text-slate-400 uppercase leading-none mb-1">Vehicle</div>
                                     <div className="text-xs font-semibold text-slate-600 bg-slate-50 px-2 py-1 rounded border border-slate-100">
-                                        {disp.transport?.vehicleNumber || 'N/A'}
+                                        {disp.vehicleNumber || disp.transport?.vehicleNumber || 'N/A'}
                                     </div>
                                 </div>
                             </div>

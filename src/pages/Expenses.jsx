@@ -4,6 +4,7 @@ import { collection, onSnapshot, query, orderBy, where } from 'firebase/firestor
 import { addExpense, deleteExpense, addIncome, deleteIncome, addExpensesBulk } from '../services/firestoreService';
 import { Loader2, Plus, Trash2, Calendar, Receipt, TrendingDown, Filter, Download, Wallet, ArrowUpCircle, X, CheckCircle2, AlertCircle } from 'lucide-react';
 import { format, isWithinInterval, startOfDay, endOfDay, startOfMonth, endOfMonth } from 'date-fns';
+import { useAuth } from '../context/AuthContext';
 import * as XLSX from 'xlsx';
 
 const CATEGORIES = ['Labour', 'Fuel', 'Overtime', 'Other OVERHEADS'];
@@ -15,6 +16,7 @@ const CATEGORY_COLORS = {
 };
 
 export default function Expenses() {
+    const { userRole } = useAuth();
     const [expenses, setExpenses] = useState([]);
     const [income, setIncome] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -306,12 +308,14 @@ export default function Expenses() {
                     >
                         <Download className="h-4 w-4" /> Export
                     </button>
-                    <button
-                        onClick={() => setIsIncomeModalOpen(true)}
-                        className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-3 sm:py-2.5 rounded-xl font-bold transition-all shadow-md shadow-green-500/20 active:scale-95 text-xs"
-                    >
-                        <ArrowUpCircle className="h-4 w-4" /> Income
-                    </button>
+                    {userRole !== 'viewer' && (
+                        <button
+                            onClick={() => setIsIncomeModalOpen(true)}
+                            className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-3 sm:py-2.5 rounded-xl font-bold transition-all shadow-md shadow-green-500/20 active:scale-95 text-xs"
+                        >
+                            <ArrowUpCircle className="h-4 w-4" /> Income
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -350,212 +354,214 @@ export default function Expenses() {
             </div>
 
             {/* Dynamic Multi-Row Bulk Entry Card */}
-            <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-md border border-slate-200 relative overflow-hidden">
-                {isSaving && (
-                    <div className="absolute inset-0 z-50 bg-white/80 backdrop-blur-sm flex flex-col items-center justify-center animate-in fade-in duration-300">
-                        <Loader2 className="h-10 w-10 text-indigo-600 animate-spin mb-2" />
-                        <p className="font-black text-indigo-900 uppercase tracking-widest text-xs">Saving Entries...</p>
-                    </div>
-                )}
-                {saveSuccess && (
-                    <div className="absolute inset-0 z-50 bg-emerald-50 bg-opacity-95 flex flex-col items-center justify-center animate-in zoom-in-95 duration-300">
-                        <CheckCircle2 className="h-12 w-12 text-emerald-600 mb-2" />
-                        <p className="font-black text-emerald-900 uppercase tracking-widest text-sm">Success! Expenses Saved</p>
-                    </div>
-                )}
-
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2.5 bg-rose-50 rounded-xl"><Receipt className="h-5 w-5 text-rose-600" /></div>
-                        <div>
-                            <h3 className="font-black text-slate-800 uppercase tracking-wider text-sm">Bulk Expense Entry</h3>
-                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">Add multiple records in one go</p>
+            {userRole !== 'viewer' && (
+                <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-md border border-slate-200 relative overflow-hidden">
+                    {isSaving && (
+                        <div className="absolute inset-0 z-50 bg-white/80 backdrop-blur-sm flex flex-col items-center justify-center animate-in fade-in duration-300">
+                            <Loader2 className="h-10 w-10 text-indigo-600 animate-spin mb-2" />
+                            <p className="font-black text-indigo-900 uppercase tracking-widest text-xs">Saving Entries...</p>
                         </div>
-                    </div>
-                    <button
-                        onClick={addRow}
-                        className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-xl text-xs font-black transition-all active:scale-95"
-                    >
-                        <Plus className="h-4 w-4" /> Add Another Row
-                    </button>
-                </div>
+                    )}
+                    {saveSuccess && (
+                        <div className="absolute inset-0 z-50 bg-emerald-50 bg-opacity-95 flex flex-col items-center justify-center animate-in zoom-in-95 duration-300">
+                            <CheckCircle2 className="h-12 w-12 text-emerald-600 mb-2" />
+                            <p className="font-black text-emerald-900 uppercase tracking-widest text-sm">Success! Expenses Saved</p>
+                        </div>
+                    )}
 
-                <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
-                    {entryRows.map((row, index) => (
-                        <div
-                            key={row.id}
-                            className="bg-slate-50 border border-slate-200 p-3 sm:p-4 rounded-2xl flex flex-col xl:flex-row gap-3 md:gap-4 relative group"
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2.5 bg-rose-50 rounded-xl"><Receipt className="h-5 w-5 text-rose-600" /></div>
+                            <div>
+                                <h3 className="font-black text-slate-800 uppercase tracking-wider text-sm">Bulk Expense Entry</h3>
+                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">Add multiple records in one go</p>
+                            </div>
+                        </div>
+                        <button
+                            onClick={addRow}
+                            className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-xl text-xs font-black transition-all active:scale-95"
                         >
-                            {/* Mobile Delete Button */}
-                            <button
-                                onClick={() => removeRow(row.id)}
-                                className="absolute -top-2 -right-2 bg-white border border-slate-200 text-slate-400 hover:text-rose-600 p-2 rounded-full shadow-lg transition-all xl:hidden z-10"
+                            <Plus className="h-4 w-4" /> Add Another Row
+                        </button>
+                    </div>
+
+                    <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
+                        {entryRows.map((row, index) => (
+                            <div
+                                key={row.id}
+                                className="bg-slate-50 border border-slate-200 p-3 sm:p-4 rounded-2xl flex flex-col xl:flex-row gap-3 md:gap-4 relative group"
                             >
-                                <X className="h-4 w-4" />
-                            </button>
-
-                            {/* Row Serial & Date */}
-                            <div className="xl:w-40 shrink-0 flex flex-row xl:flex-col gap-2 items-center xl:items-start">
-                                <span className="bg-slate-200 text-slate-500 w-8 h-8 md:w-6 md:h-6 rounded-lg flex items-center justify-center text-[10px] font-black shrink-0">{index + 1}</span>
-                                <input
-                                    type="date"
-                                    required
-                                    className="flex-1 md:w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold focus:ring-2 focus:ring-rose-500 outline-none"
-                                    value={row.date}
-                                    onChange={e => updateRow(row.id, { date: e.target.value })}
-                                />
-                            </div>
-
-                            {/* Category Grid - Multi-Entry Allowed */}
-                            <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
-                                {CATEGORIES.map(cat => {
-                                    let amount = 0;
-                                    if (cat === 'Labour') amount = (Number(row.labourQty) || 0) * (Number(row.labourRate) || 0);
-                                    else if (cat === 'Overtime') amount = (Number(row.overtimeHeads) || 0) * (Number(row.overtimeRate) || 0);
-                                    else amount = Number(row.amounts[cat]) || 0;
-
-                                    const description = row.descriptions[cat];
-                                    const hasData = amount > 0 || description;
-
-                                    return (
-                                        <div
-                                            key={cat}
-                                            className={`flex flex-col p-2 rounded-xl border-2 transition-all ${hasData
-                                                ? 'bg-white shadow-sm ring-1 ring-inset ' + (
-                                                    cat === 'Labour' ? 'ring-blue-100 border-blue-200' :
-                                                        cat === 'Fuel' ? 'ring-orange-100 border-orange-200' :
-                                                            cat === 'Overtime' ? 'ring-purple-100 border-purple-200' :
-                                                                'ring-slate-100 border-slate-200'
-                                                )
-                                                : 'bg-white/50 border-transparent hover:border-slate-200'
-                                                }`}
-                                        >
-                                            <div className="flex items-center gap-2 mb-1.5 px-0.5">
-                                                <span className={`text-[9px] font-black uppercase tracking-tight ${hasData
-                                                    ? (cat === 'Labour' ? 'text-blue-600' : cat === 'Fuel' ? 'text-orange-600' : cat === 'Overtime' ? 'text-purple-600' : 'text-slate-700')
-                                                    : 'text-slate-400'
-                                                    }`}>{cat}</span>
-                                            </div>
-
-                                            <input
-                                                type="text"
-                                                placeholder="DESCRIPTION..."
-                                                className="w-full bg-slate-100/50 border-none px-2 py-1.5 rounded-lg text-[10px] font-bold placeholder:text-slate-300 focus:ring-1 focus:ring-rose-400 outline-none mb-2"
-                                                value={row.descriptions[cat]}
-                                                onChange={e => updateRow(row.id, {
-                                                    descriptions: { ...row.descriptions, [cat]: e.target.value.toUpperCase() }
-                                                })}
-                                            />
-
-                                            {cat === 'Labour' ? (
-                                                <div className="grid grid-cols-3 gap-1">
-                                                    <div className="flex flex-col gap-0.5">
-                                                        <span className="text-[7px] font-bold text-slate-400 uppercase ml-1">Qty (Tons)</span>
-                                                        <input
-                                                            type="number"
-                                                            placeholder="0"
-                                                            className="w-full bg-white border border-slate-200 px-2 py-1.5 rounded-lg text-[10px] font-black text-slate-700 focus:ring-1 focus:ring-blue-500 outline-none"
-                                                            value={row.labourQty}
-                                                            onChange={e => updateRow(row.id, { labourQty: e.target.value })}
-                                                        />
-                                                    </div>
-                                                    <div className="flex flex-col gap-0.5">
-                                                        <span className="text-[7px] font-bold text-slate-400 uppercase ml-1">Rate</span>
-                                                        <input
-                                                            type="number"
-                                                            placeholder="0"
-                                                            className="w-full bg-white border border-slate-200 px-2 py-1.5 rounded-lg text-[10px] font-black text-slate-700 focus:ring-1 focus:ring-blue-500 outline-none"
-                                                            value={row.labourRate}
-                                                            onChange={e => updateRow(row.id, { labourRate: e.target.value })}
-                                                        />
-                                                    </div>
-                                                    <div className="flex flex-col gap-0.5">
-                                                        <span className="text-[7px] font-bold text-slate-400 uppercase ml-1 text-center">Total</span>
-                                                        <input
-                                                            value={`₹${(Number(row.labourQty) * Number(row.labourRate)).toLocaleString()}`}
-                                                            readOnly
-                                                            tabIndex="-1"
-                                                            className="w-full bg-slate-100 border border-slate-200 px-1 py-1.5 rounded-lg text-[10px] font-black text-blue-700 text-center cursor-not-allowed focus:ring-0 outline-none"
-                                                        />
-                                                    </div>
-                                                </div>
-                                            ) : cat === 'Overtime' ? (
-                                                <div className="grid grid-cols-3 gap-1">
-                                                    <div className="flex flex-col gap-0.5">
-                                                        <span className="text-[7px] font-bold text-slate-400 uppercase ml-1">Heads</span>
-                                                        <input
-                                                            type="number"
-                                                            placeholder="0"
-                                                            className="w-full bg-white border border-slate-200 px-2 py-1.5 rounded-lg text-[10px] font-black text-slate-700 focus:ring-1 focus:ring-purple-500 outline-none"
-                                                            value={row.overtimeHeads}
-                                                            onChange={e => updateRow(row.id, { overtimeHeads: e.target.value })}
-                                                        />
-                                                    </div>
-                                                    <div className="flex flex-col gap-0.5">
-                                                        <span className="text-[7px] font-bold text-slate-400 uppercase ml-1">Rate</span>
-                                                        <input
-                                                            type="number"
-                                                            placeholder="0"
-                                                            className="w-full bg-white border border-slate-200 px-2 py-1.5 rounded-lg text-[10px] font-black text-slate-700 focus:ring-1 focus:ring-purple-500 outline-none"
-                                                            value={row.overtimeRate}
-                                                            onChange={e => updateRow(row.id, { overtimeRate: e.target.value })}
-                                                        />
-                                                    </div>
-                                                    <div className="flex flex-col gap-0.5">
-                                                        <span className="text-[7px] font-bold text-slate-400 uppercase ml-1 text-center">Total</span>
-                                                        <input
-                                                            value={`₹${(Number(row.overtimeHeads) * Number(row.overtimeRate)).toLocaleString()}`}
-                                                            readOnly
-                                                            tabIndex="-1"
-                                                            className="w-full bg-slate-100 border border-slate-200 px-1 py-1.5 rounded-lg text-[10px] font-black text-purple-700 text-center cursor-not-allowed focus:ring-0 outline-none"
-                                                        />
-                                                    </div>
-                                                </div>
-                                            ) : (
-                                                <div className="relative">
-                                                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[9px] font-black text-slate-400">₹</span>
-                                                    <input
-                                                        type="number"
-                                                        placeholder="AMOUNT"
-                                                        className="w-full bg-white border border-slate-200 px-5 py-1.5 rounded-lg text-[11px] font-black text-slate-700 focus:ring-1 focus:ring-rose-500 outline-none"
-                                                        value={row.amounts[cat]}
-                                                        onChange={e => updateRow(row.id, {
-                                                            amounts: { ...row.amounts, [cat]: e.target.value }
-                                                        })}
-                                                    />
-                                                </div>
-                                            )}
-                                        </div>
-                                    );
-                                })}
-                            </div>
-
-                            {/* Desktop Actions */}
-                            <div className="hidden xl:flex items-end pb-1.5">
+                                {/* Mobile Delete Button */}
                                 <button
                                     onClick={() => removeRow(row.id)}
-                                    className="p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all"
-                                    title="Remove Row"
+                                    className="absolute -top-2 -right-2 bg-white border border-slate-200 text-slate-400 hover:text-rose-600 p-2 rounded-full shadow-lg transition-all xl:hidden z-10"
                                 >
-                                    <Trash2 className="h-5 w-5" />
+                                    <X className="h-4 w-4" />
                                 </button>
-                            </div>
-                        </div>
-                    ))}
-                </div>
 
-                <div className="mt-8 flex flex-col sm:flex-row justify-between items-center gap-4">
-                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest flex items-center gap-2">
-                        <AlertCircle className="h-3 w-3" /> Only rows with an amount will be saved
-                    </p>
-                    <button
-                        onClick={handleSubmit}
-                        className="bg-rose-600 hover:bg-rose-700 text-white font-black px-12 py-4 rounded-2xl shadow-xl shadow-rose-200 transition-all active:scale-95 flex items-center gap-3 w-full sm:w-auto sticky bottom-4 sm:relative"
-                    >
-                        <Plus className="h-5 w-5" /> Save All Entries
-                    </button>
+                                {/* Row Serial & Date */}
+                                <div className="xl:w-40 shrink-0 flex flex-row xl:flex-col gap-2 items-center xl:items-start">
+                                    <span className="bg-slate-200 text-slate-500 w-8 h-8 md:w-6 md:h-6 rounded-lg flex items-center justify-center text-[10px] font-black shrink-0">{index + 1}</span>
+                                    <input
+                                        type="date"
+                                        required
+                                        className="flex-1 md:w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold focus:ring-2 focus:ring-rose-500 outline-none"
+                                        value={row.date}
+                                        onChange={e => updateRow(row.id, { date: e.target.value })}
+                                    />
+                                </div>
+
+                                {/* Category Grid - Multi-Entry Allowed */}
+                                <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+                                    {CATEGORIES.map(cat => {
+                                        let amount = 0;
+                                        if (cat === 'Labour') amount = (Number(row.labourQty) || 0) * (Number(row.labourRate) || 0);
+                                        else if (cat === 'Overtime') amount = (Number(row.overtimeHeads) || 0) * (Number(row.overtimeRate) || 0);
+                                        else amount = Number(row.amounts[cat]) || 0;
+
+                                        const description = row.descriptions[cat];
+                                        const hasData = amount > 0 || description;
+
+                                        return (
+                                            <div
+                                                key={cat}
+                                                className={`flex flex-col p-2 rounded-xl border-2 transition-all ${hasData
+                                                    ? 'bg-white shadow-sm ring-1 ring-inset ' + (
+                                                        cat === 'Labour' ? 'ring-blue-100 border-blue-200' :
+                                                            cat === 'Fuel' ? 'ring-orange-100 border-orange-200' :
+                                                                cat === 'Overtime' ? 'ring-purple-100 border-purple-200' :
+                                                                    'ring-slate-100 border-slate-200'
+                                                    )
+                                                    : 'bg-white/50 border-transparent hover:border-slate-200'
+                                                    }`}
+                                            >
+                                                <div className="flex items-center gap-2 mb-1.5 px-0.5">
+                                                    <span className={`text-[9px] font-black uppercase tracking-tight ${hasData
+                                                        ? (cat === 'Labour' ? 'text-blue-600' : cat === 'Fuel' ? 'text-orange-600' : cat === 'Overtime' ? 'text-purple-600' : 'text-slate-700')
+                                                        : 'text-slate-400'
+                                                        }`}>{cat}</span>
+                                                </div>
+
+                                                <input
+                                                    type="text"
+                                                    placeholder="DESCRIPTION..."
+                                                    className="w-full bg-slate-100/50 border-none px-2 py-1.5 rounded-lg text-[10px] font-bold placeholder:text-slate-300 focus:ring-1 focus:ring-rose-400 outline-none mb-2"
+                                                    value={row.descriptions[cat]}
+                                                    onChange={e => updateRow(row.id, {
+                                                        descriptions: { ...row.descriptions, [cat]: e.target.value.toUpperCase() }
+                                                    })}
+                                                />
+
+                                                {cat === 'Labour' ? (
+                                                    <div className="grid grid-cols-3 gap-1">
+                                                        <div className="flex flex-col gap-0.5">
+                                                            <span className="text-[7px] font-bold text-slate-400 uppercase ml-1">Qty (Tons)</span>
+                                                            <input
+                                                                type="number"
+                                                                placeholder="0"
+                                                                className="w-full bg-white border border-slate-200 px-2 py-1.5 rounded-lg text-[10px] font-black text-slate-700 focus:ring-1 focus:ring-blue-500 outline-none"
+                                                                value={row.labourQty}
+                                                                onChange={e => updateRow(row.id, { labourQty: e.target.value })}
+                                                            />
+                                                        </div>
+                                                        <div className="flex flex-col gap-0.5">
+                                                            <span className="text-[7px] font-bold text-slate-400 uppercase ml-1">Rate</span>
+                                                            <input
+                                                                type="number"
+                                                                placeholder="0"
+                                                                className="w-full bg-white border border-slate-200 px-2 py-1.5 rounded-lg text-[10px] font-black text-slate-700 focus:ring-1 focus:ring-blue-500 outline-none"
+                                                                value={row.labourRate}
+                                                                onChange={e => updateRow(row.id, { labourRate: e.target.value })}
+                                                            />
+                                                        </div>
+                                                        <div className="flex flex-col gap-0.5">
+                                                            <span className="text-[7px] font-bold text-slate-400 uppercase ml-1 text-center">Total</span>
+                                                            <input
+                                                                value={`₹${(Number(row.labourQty) * Number(row.labourRate)).toLocaleString()}`}
+                                                                readOnly
+                                                                tabIndex="-1"
+                                                                className="w-full bg-slate-100 border border-slate-200 px-1 py-1.5 rounded-lg text-[10px] font-black text-blue-700 text-center cursor-not-allowed focus:ring-0 outline-none"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                ) : cat === 'Overtime' ? (
+                                                    <div className="grid grid-cols-3 gap-1">
+                                                        <div className="flex flex-col gap-0.5">
+                                                            <span className="text-[7px] font-bold text-slate-400 uppercase ml-1">Heads</span>
+                                                            <input
+                                                                type="number"
+                                                                placeholder="0"
+                                                                className="w-full bg-white border border-slate-200 px-2 py-1.5 rounded-lg text-[10px] font-black text-slate-700 focus:ring-1 focus:ring-purple-500 outline-none"
+                                                                value={row.overtimeHeads}
+                                                                onChange={e => updateRow(row.id, { overtimeHeads: e.target.value })}
+                                                            />
+                                                        </div>
+                                                        <div className="flex flex-col gap-0.5">
+                                                            <span className="text-[7px] font-bold text-slate-400 uppercase ml-1">Rate</span>
+                                                            <input
+                                                                type="number"
+                                                                placeholder="0"
+                                                                className="w-full bg-white border border-slate-200 px-2 py-1.5 rounded-lg text-[10px] font-black text-slate-700 focus:ring-1 focus:ring-purple-500 outline-none"
+                                                                value={row.overtimeRate}
+                                                                onChange={e => updateRow(row.id, { overtimeRate: e.target.value })}
+                                                            />
+                                                        </div>
+                                                        <div className="flex flex-col gap-0.5">
+                                                            <span className="text-[7px] font-bold text-slate-400 uppercase ml-1 text-center">Total</span>
+                                                            <input
+                                                                value={`₹${(Number(row.overtimeHeads) * Number(row.overtimeRate)).toLocaleString()}`}
+                                                                readOnly
+                                                                tabIndex="-1"
+                                                                className="w-full bg-slate-100 border border-slate-200 px-1 py-1.5 rounded-lg text-[10px] font-black text-purple-700 text-center cursor-not-allowed focus:ring-0 outline-none"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <div className="relative">
+                                                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[9px] font-black text-slate-400">₹</span>
+                                                        <input
+                                                            type="number"
+                                                            placeholder="AMOUNT"
+                                                            className="w-full bg-white border border-slate-200 px-5 py-1.5 rounded-lg text-[11px] font-black text-slate-700 focus:ring-1 focus:ring-rose-500 outline-none"
+                                                            value={row.amounts[cat]}
+                                                            onChange={e => updateRow(row.id, {
+                                                                amounts: { ...row.amounts, [cat]: e.target.value }
+                                                            })}
+                                                        />
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+
+                                {/* Desktop Actions */}
+                                <div className="hidden xl:flex items-end pb-1.5">
+                                    <button
+                                        onClick={() => removeRow(row.id)}
+                                        className="p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all"
+                                        title="Remove Row"
+                                    >
+                                        <Trash2 className="h-5 w-5" />
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    <div className="mt-8 flex flex-col sm:flex-row justify-between items-center gap-4">
+                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest flex items-center gap-2">
+                            <AlertCircle className="h-3 w-3" /> Only rows with an amount will be saved
+                        </p>
+                        <button
+                            onClick={handleSubmit}
+                            className="bg-rose-600 hover:bg-rose-700 text-white font-black px-12 py-4 rounded-2xl shadow-xl shadow-rose-200 transition-all active:scale-95 flex items-center gap-3 w-full sm:w-auto sticky bottom-4 sm:relative"
+                        >
+                            <Plus className="h-5 w-5" /> Save All Entries
+                        </button>
+                    </div>
                 </div>
-            </div>
+            )}
 
             {/* Expense History Section (Relocated below the form) */}
             <div className="space-y-4">
@@ -622,9 +628,11 @@ export default function Expenses() {
                                             ₹{exp.amount.toLocaleString()}
                                         </td>
                                         <td className="px-6 py-4 text-right">
-                                            <button onClick={() => handleDelete(exp.id)} className="p-3 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all active:scale-90">
-                                                <Trash2 className="h-4 w-4 md:h-5 md:w-5" />
-                                            </button>
+                                            {userRole !== 'viewer' && (
+                                                <button onClick={() => handleDelete(exp.id)} className="p-3 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all active:scale-90">
+                                                    <Trash2 className="h-4 w-4 md:h-5 md:w-5" />
+                                                </button>
+                                            )}
                                         </td>
                                     </tr>
                                 ))}
@@ -708,7 +716,9 @@ export default function Expenses() {
                                 </div>
                                 <div className="flex items-center gap-4">
                                     <span className="font-black text-green-600">₹{inc.amount.toLocaleString()}</span>
-                                    <button onClick={() => handleIncomeDelete(inc.id)} className="text-slate-300 hover:text-rose-500 transition-colors"><Trash2 className="h-4 w-4" /></button>
+                                    {userRole !== 'viewer' && (
+                                        <button onClick={() => handleIncomeDelete(inc.id)} className="text-slate-300 hover:text-rose-500 transition-colors"><Trash2 className="h-4 w-4" /></button>
+                                    )}
                                 </div>
                             </div>
                         ))}

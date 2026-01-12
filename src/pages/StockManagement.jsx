@@ -24,9 +24,11 @@ import {
 import { format } from 'date-fns';
 import { addImportEntry, addLocalPurchase } from '../services/firestoreService';
 import { useSettings } from '../context/SettingsContext';
+import { useAuth } from '../context/AuthContext';
 
 export default function StockManagement() {
     const { settings } = useSettings();
+    const { userRole } = useAuth();
     const [activeTab, setActiveTab] = useState('dashboard');
     const [products, setProducts] = useState([]);
     const [imports, setImports] = useState([]);
@@ -163,18 +165,22 @@ export default function StockManagement() {
                     >
                         <LayoutDashboard className="h-4 w-4" /> Dashboard
                     </button>
-                    <button
-                        onClick={() => setActiveTab('import')}
-                        className={`flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-bold transition-all text-xs border ${activeTab === 'import' ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-500/20' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
-                    >
-                        <Globe className="h-4 w-4" /> Import Entry
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('local')}
-                        className={`flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-bold transition-all text-xs border ${activeTab === 'local' ? 'bg-emerald-600 text-white border-emerald-600 shadow-lg shadow-emerald-500/20' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
-                    >
-                        <Briefcase className="h-4 w-4" /> Local Purchase
-                    </button>
+                    {userRole !== 'viewer' && (
+                        <>
+                            <button
+                                onClick={() => setActiveTab('import')}
+                                className={`flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-bold transition-all text-xs border ${activeTab === 'import' ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-500/20' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
+                            >
+                                <Globe className="h-4 w-4" /> Import Entry
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('local')}
+                                className={`flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-bold transition-all text-xs border ${activeTab === 'local' ? 'bg-emerald-600 text-white border-emerald-600 shadow-lg shadow-emerald-500/20' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
+                            >
+                                <Briefcase className="h-4 w-4" /> Local Purchase
+                            </button>
+                        </>
+                    )}
                 </div>
             </div>
 

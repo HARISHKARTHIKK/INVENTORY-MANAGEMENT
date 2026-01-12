@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { Plus, Search, Edit, Trash2, Truck, Loader2, Phone } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 import { db } from '../lib/firebase';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import { addTransporter, updateTransporter, deleteTransporter } from '../services/firestoreService';
 
 export default function Transporters() {
+    const { userRole } = useAuth();
     const [transporters, setTransporters] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -108,13 +110,15 @@ export default function Transporters() {
                     </h2>
                     <p className="text-sm text-slate-500 mt-1">Manage your transporter database</p>
                 </div>
-                <button
-                    onClick={() => handleOpenModal()}
-                    className="w-full sm:w-auto flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 sm:py-2.5 rounded-lg font-medium transition-all shadow-md shadow-blue-500/20 active:scale-95"
-                >
-                    <Plus className="h-4 w-4" />
-                    Add Transporter
-                </button>
+                {userRole !== 'viewer' && (
+                    <button
+                        onClick={() => handleOpenModal()}
+                        className="w-full sm:w-auto flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 sm:py-2.5 rounded-lg font-medium transition-all shadow-md shadow-blue-500/20 active:scale-95"
+                    >
+                        <Plus className="h-4 w-4" />
+                        Add Transporter
+                    </button>
+                )}
             </div>
 
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
@@ -156,14 +160,16 @@ export default function Transporters() {
                                         </div>
                                     </td>
                                     <td className="px-6 py-4 text-right">
-                                        <div className="flex items-center justify-end gap-2 md:opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <button onClick={() => handleOpenModal(transporter)} className="p-3 md:p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Edit">
-                                                <Edit className="h-5 w-5 md:h-4 md:w-4" />
-                                            </button>
-                                            <button onClick={() => handleDelete(transporter.id)} className="p-3 md:p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
-                                                <Trash2 className="h-5 w-5 md:h-4 md:w-4" />
-                                            </button>
-                                        </div>
+                                        {userRole !== 'viewer' && (
+                                            <div className="flex items-center justify-end gap-2 md:opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <button onClick={() => handleOpenModal(transporter)} className="p-3 md:p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Edit">
+                                                    <Edit className="h-5 w-5 md:h-4 md:w-4" />
+                                                </button>
+                                                <button onClick={() => handleDelete(transporter.id)} className="p-3 md:p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
+                                                    <Trash2 className="h-5 w-5 md:h-4 md:w-4" />
+                                                </button>
+                                            </div>
+                                        )}
                                     </td>
                                 </tr>
                             ))}

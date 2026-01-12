@@ -16,9 +16,11 @@ import {
     X,
     Save
 } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 import { addSupplier, updateSupplier, deleteSupplier } from '../services/firestoreService';
 
 export default function Suppliers() {
+    const { userRole } = useAuth();
     const [suppliers, setSuppliers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -105,13 +107,15 @@ export default function Suppliers() {
                     </h2>
                     <p className="text-sm text-slate-500 mt-1">Manage your international and local vendors</p>
                 </div>
-                <button
-                    onClick={() => { resetForm(); setIsModalOpen(true); }}
-                    className="w-full sm:w-auto flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-bold transition-all shadow-lg shadow-blue-500/20 active:scale-95"
-                >
-                    <Plus className="h-5 w-5" />
-                    Add Supplier
-                </button>
+                {userRole !== 'viewer' && (
+                    <button
+                        onClick={() => { resetForm(); setIsModalOpen(true); }}
+                        className="w-full sm:w-auto flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-bold transition-all shadow-lg shadow-blue-500/20 active:scale-95"
+                    >
+                        <Plus className="h-5 w-5" />
+                        Add Supplier
+                    </button>
+                )}
             </div>
 
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
@@ -151,14 +155,16 @@ export default function Suppliers() {
                                     <td className="px-6 py-4 text-slate-600">{supplier.contactPerson || '-'}</td>
                                     <td className="px-6 py-4 font-bold text-blue-600">{supplier.phone || '-'}</td>
                                     <td className="px-6 py-4 text-right">
-                                        <div className="flex justify-end gap-2">
-                                            <button onClick={() => handleEdit(supplier)} className="p-2 hover:bg-blue-50 text-blue-600 rounded-lg transition-colors">
-                                                <Edit2 className="h-4 w-4" />
-                                            </button>
-                                            <button onClick={() => handleDelete(supplier.id)} className="p-2 hover:bg-rose-50 text-rose-600 rounded-lg transition-colors">
-                                                <Trash2 className="h-4 w-4" />
-                                            </button>
-                                        </div>
+                                        {userRole !== 'viewer' && (
+                                            <div className="flex justify-end gap-2">
+                                                <button onClick={() => handleEdit(supplier)} className="p-2 hover:bg-blue-50 text-blue-600 rounded-lg transition-colors">
+                                                    <Edit2 className="h-4 w-4" />
+                                                </button>
+                                                <button onClick={() => handleDelete(supplier.id)} className="p-2 hover:bg-rose-50 text-rose-600 rounded-lg transition-colors">
+                                                    <Trash2 className="h-4 w-4" />
+                                                </button>
+                                            </div>
+                                        )}
                                     </td>
                                 </tr>
                             ))}
@@ -175,14 +181,16 @@ export default function Suppliers() {
                                     <h3 className="font-bold text-slate-900">{supplier.name}</h3>
                                     <p className="text-[10px] text-slate-400 uppercase tracking-widest mt-0.5">{supplier.gstin || 'No GSTIN'}</p>
                                 </div>
-                                <div className="flex gap-2">
-                                    <button onClick={() => handleEdit(supplier)} className="p-2 bg-blue-50 text-blue-600 rounded-lg">
-                                        <Edit2 className="h-4 w-4" />
-                                    </button>
-                                    <button onClick={() => handleDelete(supplier.id)} className="p-2 bg-rose-50 text-rose-600 rounded-lg">
-                                        <Trash2 className="h-4 w-4" />
-                                    </button>
-                                </div>
+                                {userRole !== 'viewer' && (
+                                    <div className="flex gap-2">
+                                        <button onClick={() => handleEdit(supplier)} className="p-2 bg-blue-50 text-blue-600 rounded-lg">
+                                            <Edit2 className="h-4 w-4" />
+                                        </button>
+                                        <button onClick={() => handleDelete(supplier.id)} className="p-2 bg-rose-50 text-rose-600 rounded-lg">
+                                            <Trash2 className="h-4 w-4" />
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                             <div className="grid grid-cols-2 gap-4 text-xs">
                                 <div className="flex items-center gap-2 text-slate-500">

@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { exportToCSV } from '../utils/exportToCSV';
-import { Plus, Search, FileText, User, Calendar, Trash2, ArrowLeft, Loader2, CheckCircle, MapPin } from 'lucide-react';
+import { Plus, Search, FileText, User, Calendar, Trash2, ArrowLeft, Loader2, CheckCircle, MapPin, AlertTriangle, Info, Zap, Copy, Check, ExternalLink } from 'lucide-react';
+import axios from 'axios';
 import { db } from '../lib/firebase';
 import { collection, onSnapshot, query, orderBy, getDocs, limit, where } from 'firebase/firestore';
 import { createInvoice } from '../services/firestoreService';
@@ -18,6 +19,8 @@ export default function Invoices() {
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
     const [selectedInvoice, setSelectedInvoice] = useState(null);
+    const [generatingEway, setGeneratingEway] = useState({}); // Tracking loading by ID
+    const [copiedId, setCopiedId] = useState(null);
     const location = useLocation();
 
     // Check for navigation state to open Create Invoice automatically
@@ -83,12 +86,40 @@ export default function Invoices() {
             'Subtotal': inv.subtotal || 0,
             'Transport Amount': inv.transport?.amount || 0,
             'Transport Included': inv.transport?.isExtra ? 'No' : 'Yes',
-            'Vehicle Number': inv.transport?.vehicleNumber || '-',
+            'Vehicle Number': inv.vehicleNumber || inv.transport?.vehicleNumber || '-',
             'GST Amount': inv.taxAmount || 0,
             'Total Amount': inv.totalAmount,
             'Invoice Date': inv.createdAt?.seconds ? format(new Date(inv.createdAt.seconds * 1000), 'dd MMM yyyy') : '-'
         }));
         exportToCSV('invoices_export.csv', dataToExport);
+    };
+
+    const handleGenerateEwayBill = async (e, inv) => {
+        e.stopPropagation();
+        if (generatingEway[inv.id]) return;
+
+        setGeneratingEway(prev => ({ ...prev, [inv.id]: true }));
+        try {
+            await axios.post('http://localhost:5001/api/ewaybill/generate', {
+                invoiceId: inv.id,
+                distance: inv.distance || 100,
+                vehicleNumber: inv.vehicleNumber || inv.transport?.vehicleNumber
+            });
+            // Success animation or refresh handled by onSnapshot
+        } catch (error) {
+            console.error("E-Way Bill Generation Error:", error.response?.data || error.message);
+            console.error('Full Error Object:', error);
+            alert("Failed to generate E-Way Bill: " + (error.response?.data?.error || error.message));
+        } finally {
+            setGeneratingEway(prev => ({ ...prev, [inv.id]: false }));
+        }
+    };
+
+    const copyToClipboard = (e, text, id) => {
+        e.stopPropagation();
+        navigator.clipboard.writeText(text);
+        setCopiedId(id);
+        setTimeout(() => setCopiedId(null), 2000);
     };
 
     if (view === 'create') {
@@ -174,9 +205,8 @@ export default function Invoices() {
                                 <th className="px-6 py-4">Date</th>
                                 <th className="px-6 py-4">Customer</th>
                                 <th className="px-6 py-4">Origin</th>
-                                <th className="px-6 py-4 text-right">Basic</th>
                                 <th className="px-6 py-4 text-right">Amount</th>
-                                <th className="px-6 py-4 text-center">Status</th>
+                                <th className="px-6 py-4 text-center">E-Way Bill</th>
                                 <th className="px-6 py-4 text-right">Action</th>
                             </tr>
                         </thead>
@@ -201,8 +231,55 @@ export default function Invoices() {
                                     <td className="px-6 py-4 text-right font-black text-slate-900 border-l border-slate-50">
                                         ₹ {(Number(inv.totalAmount) || 0).toFixed(0)}
                                     </td>
-                                    <td className="px-6 py-4 text-center">
-                                        <span className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-semibold">Paid</span>
+                                    <td className="px-6 py-4">
+                                        <div className="flex flex-col items-center gap-1">
+                                            {inv.ewayBillNo ? (
+                                                <div className="flex flex-col items-center">
+                                                    <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1 animate-fadeIn">
+                                                        <CheckCircle className="h-2.5 w-2.5" /> Generated
+                                                    </span>
+                                                    <button
+                                                        onClick={(e) => copyToClipboard(e, inv.ewayBillNo, inv.id)}
+                                                        className="mt-1 flex items-center gap-1 text-[11px] font-mono text-slate-500 hover:text-blue-600 transition-colors"
+                                                    >
+                                                        {inv.ewayBillNo}
+                                                        {copiedId === inv.id ? <Check className="h-2.5 w-2.5 text-green-500" /> : <Copy className="h-2.5 w-2.5" />}
+                                                    </button>
+                                                </div>
+                                            ) : inv.ewayBillStatus === 'FAILED' ? (
+                                                <div className="group relative flex flex-col items-center">
+                                                    <span className="bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1">
+                                                        <AlertTriangle className="h-2.5 w-2.5" /> Failed
+                                                    </span>
+                                                    <div className="absolute bottom-full mb-2 hidden group-hover:block w-48 p-2 bg-slate-800 text-white text-[10px] rounded shadow-xl z-50 leading-tight">
+                                                        {inv.tallyGspResponse?.error || 'Registration failed at NIC. Check HSN/GSTIN.'}
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div className="flex flex-col items-center gap-2">
+                                                    <span className="bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full text-[10px] font-bold">Not Generated</span>
+                                                    {userRole !== 'viewer' && (
+                                                        <button
+                                                            onClick={(e) => handleGenerateEwayBill(e, inv)}
+                                                            disabled={generatingEway[inv.id]}
+                                                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-wider transition-all shadow-sm ${generatingEway[inv.id] ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-amber-50 text-amber-600 hover:bg-amber-100 hover:shadow-amber-100/50 hover:scale-105 active:scale-95'}`}
+                                                        >
+                                                            {generatingEway[inv.id] ? (
+                                                                <>
+                                                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                                                    Loading...
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    <Zap className="h-3 w-3 fill-amber-500 text-amber-500 animate-pulse" />
+                                                                    Generate
+                                                                </>
+                                                            )}
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
                                     </td>
                                     <td className="px-6 py-4 text-right">
                                         <button
@@ -235,7 +312,18 @@ export default function Invoices() {
                         >
                             <div className="flex justify-between items-start">
                                 <div className="space-y-1">
-                                    <span className="font-mono font-bold text-slate-900 dark:text-white">{inv.invoiceNo}</span>
+                                    <div className="flex items-center gap-2">
+                                        <span className="font-mono font-bold text-slate-900 dark:text-white">{inv.invoiceNo}</span>
+                                        {inv.ewayBillNo ? (
+                                            <span className="bg-green-100 text-green-700 px-1.5 py-0.5 rounded-md text-[8px] font-black uppercase tracking-tighter flex items-center gap-0.5">
+                                                <Zap className="h-2 w-2 fill-green-500" /> E-WAY
+                                            </span>
+                                        ) : inv.ewayBillStatus === 'FAILED' && (
+                                            <span className="bg-rose-100 text-rose-700 px-1.5 py-0.5 rounded-md text-[8px] font-black uppercase tracking-tighter">
+                                                Failed
+                                            </span>
+                                        )}
+                                    </div>
                                     <p className="text-[11px] text-slate-500 dark:text-slate-400">
                                         {inv.createdAt?.seconds ? format(new Date(inv.createdAt.seconds * 1000), 'dd MMM yyyy') : '-'}
                                     </p>
@@ -267,6 +355,17 @@ export default function Invoices() {
             {selectedInvoice && (
                 <InvoiceViewModal invoice={selectedInvoice} onClose={() => setSelectedInvoice(null)} />
             )}
+
+            <style dangerouslySetInnerHTML={{
+                __html: `
+                @keyframes fadeIn {
+                    from { opacity: 0; transform: translateY(-5px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+                .animate-fadeIn {
+                    animation: fadeIn 0.4s ease-out;
+                }
+            `}} />
         </div>
     );
 }
@@ -289,6 +388,27 @@ function CreateInvoice({ onCancel, onSuccess }) {
     const [transporterGSTIN, setTransporterGSTIN] = useState('');
     const [vehicleNumber, setVehicleNumber] = useState('');
     const [paymentType, setPaymentType] = useState('Payable');
+    const [distance, setDistance] = useState('');
+    const [destinationPincode, setDestinationPincode] = useState('');
+    const [vehicleError, setVehicleError] = useState(false);
+    const [isBlinking, setIsBlinking] = useState(false);
+
+    const validateVehicleNumber = (val) => {
+        const regex = /^[A-Z]{2}\d{2}[A-Z]{1,2}\d{4}$/;
+        if (val && !regex.test(val)) {
+            setVehicleError(true);
+        } else {
+            setVehicleError(false);
+        }
+    };
+
+    const handlePincodeBlur = () => {
+        if (destinationPincode.length === 6) {
+            setDistance('100');
+            setIsBlinking(true);
+            setTimeout(() => setIsBlinking(false), 5000);
+        }
+    };
 
     const baseLocations = settings?.locations?.filter(l => l.active).map(l => l.name) || ['Warehouse A', 'Warehouse B', 'Store Front', 'Factory'];
     const LOCATIONS = [...new Set([...baseLocations, userData?.location].filter(Boolean))];
@@ -464,7 +584,7 @@ function CreateInvoice({ onCancel, onSuccess }) {
                 taxRate: settings?.invoice?.tax ?? 18,
                 remarks: remarks,
                 transport: {
-                    vehicleNumber: transport.vehicleNumber,
+                    vehicleNumber: (vehicleNumber || '').replace(/\s+/g, '').toUpperCase(),
                     amount: Number(transport.amount) || 0,
                     mode: transport.mode,
                     isExtra: transport.isExtra
@@ -472,8 +592,10 @@ function CreateInvoice({ onCancel, onSuccess }) {
                 transporterId: transporterId,
                 transporterName: transporters.find(t => t.id === transporterId)?.name || '',
                 transporterGSTIN: transporterGSTIN,
-                vehicleNumber: vehicleNumber,
+                vehicleNumber: (vehicleNumber || '').replace(/\s+/g, '').toUpperCase(),
                 paymentType: paymentType,
+                distance: Number(distance) || 100,
+                destinationPincode: destinationPincode,
                 transportationCost: Number(transport.amount) || 0,
                 status: 'paid'
             }, preparedItems, fromLocation);
@@ -553,7 +675,14 @@ function CreateInvoice({ onCancel, onSuccess }) {
                         <select
                             className="w-full bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl px-4 py-2.5 text-slate-900 font-bold text-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all appearance-none cursor-pointer"
                             value={selectedCustomer}
-                            onChange={(e) => setSelectedCustomer(e.target.value)}
+                            onChange={(e) => {
+                                const cId = e.target.value;
+                                setSelectedCustomer(cId);
+                                if (cId) {
+                                    // Trigger default distance logic when a valid customer (and thus pincode) is select
+                                    setDistance('100');
+                                }
+                            }}
                         >
                             <option value="" className="text-slate-900">Choose Customer...</option>
                             {customers.map(c => (
@@ -566,6 +695,97 @@ function CreateInvoice({ onCancel, onSuccess }) {
                     </div>
                 </div>
             </div>
+
+            <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+                <div className="flex items-center gap-3 mb-4">
+                    <div className="h-6 w-1 bg-blue-600 rounded-full"></div>
+                    <h3 className="font-black text-slate-800 uppercase tracking-widest text-xs">E-Way Bill Details</h3>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="space-y-1.5">
+                        <label className="text-slate-400 text-[10px] font-black uppercase tracking-wider flex items-center gap-2">
+                            <MapPin className="h-3 w-3 text-blue-500" /> Destination Pincode
+                        </label>
+                        <input
+                            type="text"
+                            maxLength="6"
+                            className="w-full bg-slate-50 border-slate-200 rounded-xl px-4 py-2.5 text-slate-900 font-bold text-lg outline-none focus:ring-2 focus:ring-blue-500 transition-all placeholder:text-slate-300"
+                            placeholder=""
+                            value={destinationPincode}
+                            onChange={(e) => setDestinationPincode(e.target.value.replace(/\D/g, ''))}
+                            onBlur={handlePincodeBlur}
+                        />
+                        <p className="text-[9px] text-slate-400 font-bold uppercase mt-1 italic leading-tight">Required for E-way Bill</p>
+                    </div>
+
+                    <div className="space-y-1.5">
+                        <label className="text-slate-400 text-[10px] font-black uppercase tracking-wider flex items-center gap-2">
+                            Approx Distance (KMs)
+                            <div className="group relative">
+                                <Info className="h-3 w-3 text-blue-400 cursor-help" />
+                                <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 hidden group-hover:block w-48 p-2 bg-slate-800 text-white text-[10px] rounded shadow-xl z-50 leading-tight font-normal normal-case">
+                                    Auto-calculated based on pincode. Please verify for accuracy.
+                                </div>
+                            </div>
+                        </label>
+                        <div className="relative">
+                            <input
+                                type="number"
+                                className={`w-full bg-slate-50 border-slate-200 rounded-xl px-4 py-2.5 text-slate-900 font-bold text-lg outline-none focus:ring-2 focus:ring-blue-500 transition-all placeholder:text-slate-300 ${isBlinking ? 'animate-blink-yellow border-2' : ''}`}
+                                placeholder="0"
+                                value={distance}
+                                onChange={(e) => setDistance(e.target.value)}
+                            />
+                            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-[10px] font-black text-slate-400 uppercase">
+                                KM
+                            </div>
+                        </div>
+                        <p className="text-[9px] text-slate-400 font-bold uppercase mt-1 italic leading-tight">Auto-fills to 100km</p>
+                    </div>
+
+                    <div className="space-y-1.5">
+                        <label className="text-slate-400 text-[10px] font-black uppercase tracking-wider flex items-center gap-2">
+                            Vehicle Number
+                        </label>
+                        <input
+                            type="text"
+                            className={`w-full bg-slate-50 border-slate-200 rounded-xl px-4 py-2.5 text-slate-900 font-bold text-lg outline-none focus:ring-2 focus:ring-blue-500 transition-all placeholder:text-slate-300 uppercase font-mono ${vehicleError ? 'animate-shake border-rose-500 ring-2 ring-rose-100' : ''}`}
+                            placeholder="TN 01 AB 1234"
+                            value={vehicleNumber}
+                            onChange={(e) => {
+                                setVehicleNumber(e.target.value.toUpperCase());
+                                if (vehicleError) setVehicleError(false);
+                            }}
+                            onBlur={(e) => validateVehicleNumber(e.target.value.toUpperCase())}
+                        />
+                        {vehicleError ? (
+                            <p className="text-[9px] text-rose-500 font-bold uppercase mt-1 leading-tight">Invalid format. Example: TN01AB1234</p>
+                        ) : (
+                            <p className="text-[9px] text-slate-400 font-bold uppercase mt-1 italic leading-tight">Format: ST-00-AA-0000</p>
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            <style dangerouslySetInnerHTML={{
+                __html: `
+                @keyframes blink-yellow {
+                    0%, 100% { border-color: #e2e8f0; }
+                    50% { border-color: #facc15; }
+                }
+                .animate-blink-yellow {
+                    animation: blink-yellow 1s infinite;
+                }
+                @keyframes shake {
+                    0%, 100% { transform: translateX(0); }
+                    25% { transform: translateX(-5px); }
+                    75% { transform: translateX(5px); }
+                }
+                .animate-shake {
+                    animation: shake 0.2s ease-in-out infinite;
+                    animation-iteration-count: 3;
+                }
+            `}} />
 
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 items-start">
                 <div className="lg:col-span-3 space-y-3">
@@ -706,13 +926,7 @@ function CreateInvoice({ onCancel, onSuccess }) {
                                     )}
                                 </div>
                                 <div>
-                                    <label className="block text-[9px] font-black text-slate-400 uppercase mb-1.5">Vehicle / Truck Number</label>
-                                    <input
-                                        className="w-full bg-slate-50 border-slate-200 rounded-xl px-3 py-2 text-xs font-bold focus:ring-2 focus:ring-blue-500 outline-none uppercase font-mono"
-                                        placeholder="MH-XX-XX-XXXX"
-                                        value={vehicleNumber}
-                                        onChange={e => setVehicleNumber(e.target.value.toUpperCase())}
-                                    />
+                                    {/* Vehicle number moved to E-way Bill section */}
                                 </div>
                             </div>
 
@@ -923,7 +1137,7 @@ function InvoiceViewModal({ invoice, onClose }) {
                             <div className="grid grid-cols-3 gap-4 text-sm">
                                 <div>
                                     <span className="text-slate-500 block text-xs">Vehicle No</span>
-                                    <span className="font-mono">{invoice.transport.vehicleNumber || '-'}</span>
+                                    <span className="font-mono">{invoice.vehicleNumber || invoice.transport?.vehicleNumber || '-'}</span>
                                 </div>
                                 <div>
                                     <span className="text-slate-500 block text-xs">Mode</span>
