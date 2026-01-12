@@ -22,6 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+<<<<<<< HEAD
 .json
 # Firebase Secret Keys
 serviceAccountKey.json
@@ -29,3 +30,7 @@ serviceAccountKey.json
 !package.json
 !package-lock.json
 .env
+=======
+.env
+*.env
+>>>>>>> 294a1907859b66c9a964838c03007dc622760cb7
